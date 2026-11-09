@@ -43,12 +43,20 @@ I also fixed a lot of problems such as Wifi did not auto connect when reboot, de
 ## Requirements
 - A Mac (support both Apple silicon and Intel) with Homebrew. `setup.sh` installs libimobiledevice, libirecovery, ldid, libusb, [ipsw](https://github.com/blacktop/ipsw) and creates `.venv`.
 - A usbliter8 board (RP2350) for pwned DFU. I'd recommend using the board i put the image below.
-- A13: iPhone SE 2 (iPhone12,8, d79ap), iPad 9 Wi-Fi / Cellular (iPad12,1 j181ap / iPad12,2 j182ap), for iPad 9: added support but untested.
+- A13: iPhone 11 (iPhone12,1, n104ap), 11 Pro (iPhone12,3, d421ap), 11 Pro Max (iPhone12,5, d431ap), iPhone SE 2 (iPhone12,8, d79ap), iPad 9 Wi-Fi / Cellular (iPad12,1 j181ap / iPad12,2 j182ap). Boot compatibility has not been established for every model/build.
 - Any iOS 27.x build of that iPhone. 2nd Data always runs the build installed on the phone (i might be extend to iOS 26 soon?).
 
 ## Untested iOS version
 
 Every patch site is found again in the IPSW of the build you pick. If Apple changes a patched function too much, wait for me until I update and support it. Only iPhone 11 Pro on 27.2 (24B119) has booted so far, Issues, PR are welcome if it broken for you.
+
+### iPhone 11 Pro Max on iOS 27.0.1
+
+The Pro Max uses board `d431ap` (`iPhone12,5`), not the 11 Pro's `d421ap`. A dedicated `profiles/d431ap-24A446` profile is included for iOS 27.0.1, resolved against the original Pro Max firmware. The offline firmware precheck passed all 10 checks; **physical boot remains untested**. Never substitute the 11 Pro profile.
+
+On a Mac, `python3 scripts/check_11pm.py --build 24A446` checks the local Pro Max profile. To re-resolve and verify the exact patch sites, run `python3 lib/precheck.py --board d431ap --build 24A446` after installing the analysis tools. Alternatively, run the GitHub Actions workflow **iPhone 11 Pro Max firmware precheck** and choose `24A446`. It uploads a diagnostic and the generated profile without connecting to the phone.
+
+A passed precheck **does not mean the Pro Max has booted successfully**. It doesn't validate the second data volume, SEP limitations, ticket handling, or hardware recovery. Do not install a second data volume without a verified recovery path and a backup.
 
 **Pre-check** (`lib/precheck.py`) runs before anything touches the phone: it pulls only BuildManifest, kernelcache, TXM, iBSS, iBEC and DeviceTree (~70 MB) with `ipsw extract --remote`, builds the profile, applies every patch and checks TSS. Release builds come from ipsw.me, betas and RCs from AppleDB. If your build is on neither, give the IPSW yourself (file or URL).
 

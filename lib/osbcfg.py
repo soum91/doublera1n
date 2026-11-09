@@ -71,6 +71,11 @@ _ID = _identity()
 def comp(key):
     """IPSW-relative path of a BuildManifest component for this board."""
     if _ID is None:
+        # The legacy fallback below names *11 Pro* firmware only. In particular,
+        # d431ap has distinct iBSS, iBEC, DeviceTree and SEP paths. Never silently
+        # use d421ap boot files when preparing another board.
+        if BOARD.lower() != 'd421ap':
+            raise SystemExit(f"!! Missing BuildManifest.plist for {BOARD}: cannot use 11 Pro firmware path defaults")
         return _LEGACY[key]
     p = _ID['Manifest'].get(key, {}).get('Info', {}).get('Path')
     if not p:

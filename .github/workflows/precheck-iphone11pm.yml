@@ -1,0 +1,50 @@
+name: iPhone 11 Pro Max firmware precheck
+
+on:
+  workflow_dispatch:
+    inputs:
+      build:
+        description: Installed iOS build on iPhone 11 Pro Max
+        required: true
+        type: choice
+        default: "24A446"
+        options:
+          - "24A446" # iOS 27.0.1
+          - "24B119" # iOS 27.2
+
+permissions:
+  contents: read
+
+jobs:
+  precheck:
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      DUALBOOT_HOME: ${{ runner.temp }}/doublera1n-precheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install firmware analysis tools
+        run: |
+          brew install blacktop/tap/ipsw
+          python3 -m pip install -r requirements.txt
+      - name: Offline unit tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Precheck exact Pro Max firmware (no device connected)
+        shell: bash
+        run: |
+          set -o pipefail
+          python3 lib/precheck.py --board d431ap --build "${{ inputs.build }}" 2>&1 | tee precheck-iphone11pm.log
+      - name: Validate board identity, records, and checksums
+        run: python3 scripts/check_11pm.py --build "${{ inputs.build }}"
+      - name: Upload diagnostic and generated profile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iphone11pm-${{ inputs.build }}-precheck
+          if-no-files-found: warn
+          path: |
+            precheck-iphone11pm.log
+            profiles/d431ap-${{ inputs.build }}/
