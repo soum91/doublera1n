@@ -477,7 +477,8 @@ def cmd_usb_probe(a):
         die("the Mac is missing tools - run ./setup.sh:\n      " + "\n      ".join(bad))
     probe_bin = os.path.join(PAYLOAD, 'setup', 'rdprobe')
     if not os.path.isfile(probe_bin):
-        die("read-only rdprobe binary missing. Run src/build_rdprobe.sh on a Mac with the iPhoneOS SDK "
+        die("read-only rdprobe binary missing. Pull the latest soum91/doublera1n main branch, "
+            "or run src/build_rdprobe.sh on a Mac with the iPhoneOS SDK "
             "or get the signed binary from the USB probe GitHub Actions artifact. "
             "Do not substitute payload/setup/rdsetup (it creates DataB).")
     q = wait_dfu(pwned=True)
