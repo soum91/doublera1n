@@ -12,6 +12,8 @@ Nothing on the stock OS is modified: a normal reboot always returns to stock iOS
   ./dualboot.py remove           delete DataB and our Preboot files (back to a single stock OS)
   ./dualboot.py provision        (re)apply all userland fixes over SSH while 2nd Data is running
   ./dualboot.py status | doctor  show workspace / check the Mac
+  ./dualboot.py probe-usb        prepare a read-only restore-USB test (requires signed rdprobe binary)
+  ./dualboot.py probe-usb --boot explicitly send the read-only test chain (NOT an install)
   ./dualboot.py versions | select | precheck | profile
                                  pick the iOS build installed on the phone; profiles are generated per build
 """
@@ -468,6 +470,58 @@ def build_setup_chain(ws, mode):
     ws.py('mk_chain.py', mode, capture=True)
     ws.py('mk_kernel.py', capture=True)     # after mk_chain: replaces its stock kernel/TXM with the patched ones
 
+def cmd_usb_probe(a):
+    """Opt-in, non-installing restore-USB transport experiment; never runs rdsetup."""
+    bad = host_check()
+    if bad:
+        die("the Mac is missing tools - run ./setup.sh:\n      " + "\n      ".join(bad))
+    probe_bin = os.path.join(PAYLOAD, 'setup', 'rdprobe')
+    if not os.path.isfile(probe_bin):
+        die("read-only rdprobe binary missing. Run src/build_rdprobe.sh on a Mac with the iPhoneOS SDK "
+            "or get the signed binary from the USB probe GitHub Actions artifact. "
+            "Do not substitute payload/setup/rdsetup (it creates DataB).")
+    q = wait_dfu(pwned=True)
+    board = board_of(q) or die("unsupported board")
+    sel = load_selected()
+    if sel.get('board') and sel['board'] != board:
+        die(f"selected board {sel['board']} differs from attached device {board}; refusing")
+    build = a.build or sel.get('build')
+    if not build:
+        die("select the exact installed iOS build first (dualboot.py select --board ... --build ...)")
+    prof = ensure_profile(board, build,
+                          sel.get('version', '') if sel.get('build') == build else '',
+                          a.ipsw or (sel.get('ipsw') if sel.get('build') == build else None))
+    if not (prof.get('precheck') or {}).get('ok'):
+        die("profile lacks a passing firmware precheck; run dualboot.py precheck first")
+    say(f"READ-ONLY USB transport probe for {board} iOS {prof['version']} ({prof['build']})")
+    say("The installed phone build must match the profile; DFU does not report the installed build.")
+    ws = Workspace(q['ECID'], prof)
+    ipsw = find_ipsw(prof, a.ipsw or (sel.get('ipsw') if sel.get('build') == build else None))
+    extract_ipsw(ws, ipsw)
+    prepare_tickets(ws)
+    prepare_iboot(ws)
+    say("building a standalone read-only probe ramdisk (no DataB setup code included) ...")
+    build_setup_chain(ws, 'probe')
+    if not a.boot:
+        say("Probe prepared on the Mac. No boot files were sent to the phone.")
+        say("After making a backup, run the same command with --boot to test the USB return path.")
+        return
+    warn("FIRST PHYSICAL TEST: custom iBSS/iBEC/kernel/ramdisk will be sent to the phone. "
+         "The probe itself performs NO filesystem operations, but untested boot-chain changes may still fail. "
+         "Have an encrypted backup and recovery plan.")
+    r = run(sys.executable, os.path.join(LIB, 'boot_chain.py'), env=ws.env(), check=False)
+    if r.returncode:
+        die("read-only probe chain failed. Do not run the installer. Restart normally if necessary.")
+    say("Probe ramdisk sent. Testing USB connection (wait up to 120 seconds) ...")
+    r = run(sys.executable, os.path.join(ROOT, 'scripts', 'usb_probe_client.py'),
+            '--timeout', '120', check=False)
+    if r.returncode:
+        warn("USB probe did not answer. NO installation was attempted; do NOT run Start/install. "
+             "Force-reboot to stock iOS when finished inspecting the screen.")
+    else:
+        say("USB transport works for the read-only probe. No APFS changes were made; "
+            "a separately reviewed install protocol is still required.")
+
 def setup_boot(ws, mode):
     """Boot the setup ramdisk and follow rdsetup on the UART. Returns the captured bytes."""
     ser = serial_source(ws.p('logs', f'setup-{mode}-{time.strftime("%Y%m%d-%H%M%S")}.log'))
@@ -743,6 +797,9 @@ def main():
     sub.add_parser('boot', help='boot 2nd Data (pwned DFU)').add_argument('--no-wait', action='store_true')
     s = sub.add_parser('install', help='first-time setup'); s.add_argument('--ipsw'); s.add_argument('--build')
     s.add_argument('--skip-precheck', action='store_true')
+    s = sub.add_parser('probe-usb', help='prepare read-only restore-USB handshake (never creates DataB)')
+    s.add_argument('--ipsw'); s.add_argument('--build')
+    s.add_argument('--boot', action='store_true', help='explicitly boot the read-only probe; BACKUP FIRST')
     s = sub.add_parser('remove', help='delete DataB + Preboot files'); s.add_argument('--ipsw')
     s = sub.add_parser('provision', help='(re)apply userland fixes over SSH'); s.add_argument('--ecid')
     s.add_argument('--apply', action='store_true', help='also run osb-boot.sh now (restarts daemons, respring)')
@@ -762,6 +819,7 @@ def main():
     s.add_argument('--rootfs'); s.add_argument('--force', action='store_true')
     a = ap.parse_args()
     {'boot': cmd_boot, 'install': cmd_install, 'remove': cmd_remove, 'provision': cmd_provision,
+     'probe-usb': cmd_usb_probe,
      'status': cmd_status, 'doctor': cmd_doctor, 'ssh': cmd_ssh, 'rebuild': cmd_rebuild,
      'versions': cmd_versions, 'select': cmd_select, 'profile': cmd_profile, 'precheck': cmd_precheck,
      None: cmd_auto}[a.cmd](a)

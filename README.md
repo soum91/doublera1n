@@ -58,6 +58,18 @@ On a Mac, `python3 scripts/check_11pm.py --build 24A446` checks the local Pro Ma
 
 A passed precheck **does not mean the Pro Max has booted successfully**. It doesn't validate the second data volume, SEP limitations, ticket handling, or hardware recovery. Do not install a second data volume without a verified recovery path and a backup.
 
+### USB-only diagnostic experiment (no UART board required)
+
+The original installer **still requires UART** to recover the setup result and installed APTicket. Do **not** bypass that check and run `Start`: it is unsafe to attempt DataB setup without a return path. Some RP2354A service boards can pwn DFU without exposing a `/dev/cu.usbmodem*` serial port.
+
+An independent, **read-only restore-ramdisk USB transport probe** is now available. It tests whether the Mac can reach a TCP listener in the ramdisk through `usbmuxd`/`iproxy`. The probe **never invokes `rdsetup`**, never creates a volume, and never reads an APTicket. Passing it would only establish a possible return transport, **not** validate a jailbreak installation. It is not a no-UART installer yet.
+
+1. Build/sign `payload/setup/rdprobe` on a Mac with the full iPhoneOS SDK and `ldid`: `bash src/build_rdprobe.sh`. Or download the **doublera1n-readonly-usb-probe** artifact from GitHub Actions workflow **Read-only USB restore transport probe** and place its `rdprobe` in `payload/setup/`. Do not substitute the original `rdsetup` binary.
+2. With a current encrypted backup, the iPhone in pwned DFU, and a checked/selected **exact** build, prepare the probe on the Mac: `./.venv/bin/python3 dualboot.py probe-usb --build 24A446`. Preparation downloads the full IPSW and creates boot artifacts on the Mac; it does not send anything to the phone.
+3. **Only after reviewing the physical boot risk**, add `--boot` to that command. It sends a modified boot chain and the read-only probe ramdisk, then waits up to 120 seconds for the USB handshake. The phone may need a force-reboot to return to stock. No iPhone 11 Pro Max boot is established yet.
+
+This experiment does **not** write DataB, but a previously untested boot chain is still risky. If the USB handshake fails, stop. A production no-UART installer requires its own authenticated and validated ticket/status transfer implementation and independent review.
+
 **Pre-check** (`lib/precheck.py`) runs before anything touches the phone: it pulls only BuildManifest, kernelcache, TXM, iBSS, iBEC and DeviceTree (~70 MB) with `ipsw extract --remote`, builds the profile, applies every patch and checks TSS. Release builds come from ipsw.me, betas and RCs from AppleDB. If your build is on neither, give the IPSW yourself (file or URL).
 
 ```

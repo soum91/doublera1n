@@ -1,0 +1,36 @@
+name: Read-only USB restore transport probe
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - src/rdprobe.c
+      - src/build_rdprobe.sh
+      - .github/workflows/usb-restore-probe.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build-read-only-probe:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install code-signing tool
+        run: brew install ldid
+      - name: Build and sign only the isolated probe
+        run: bash src/build_rdprobe.sh
+      - name: Verify output and record checksum
+        run: |
+          file payload/setup/rdprobe
+          codesign -dvvv payload/setup/rdprobe 2>&1 | tee usb-probe-build.txt
+          shasum -a 256 payload/setup/rdprobe | tee -a usb-probe-build.txt
+      - name: Upload read-only ramdisk probe binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: doublera1n-readonly-usb-probe
+          path: |
+            payload/setup/rdprobe
+            usb-probe-build.txt
+          if-no-files-found: error

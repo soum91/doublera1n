@@ -2,10 +2,11 @@
 """Setup ramdisk for the dualboot tool: Apple's restore ramdisk (RestoreRamDisk of the IPSW, unmodified except for
 two files) whose restored_external is rdsetup, plus its trust cache with rdsetup's cdhash added.
 
-  mk_setuprd.py install|remove  ->  $OSB_WORK/setuprd-<mode>.img4 (rdsk), $OSB_WORK/setuptc-<mode>.img4 (rtsc)
+  mk_setuprd.py install|remove|probe -> $OSB_WORK/setuprd-<mode>.img4 (rdsk), $OSB_WORK/setuptc-<mode>.img4 (rtsc)
 
   /usr/local/bin/restored_external    = rdsetup (payload/setup/rdsetup, built from src/rdsetup.c)
-  /usr/local/share/dualboot/mode      = "install" | "remove"
+  /usr/local/share/dualboot/mode      = "install" | "remove" | "probe"
+The probe substitutes a separate read-only TCP listener binary for rdsetup.
 Both are signed with $OSB_OUT/apticket.im4m (our iBoot does not check AP image signatures anyway).
 Nothing here touches the phone."""
 import os, shutil, struct, subprocess, sys, tempfile
@@ -17,6 +18,7 @@ import osbcfg
 
 ROOT = os.path.dirname(HERE)
 RDSETUP = os.environ.get('OSB_RDSETUP') or os.path.join(ROOT, 'payload/setup/rdsetup')
+RDPROBE = os.environ.get('OSB_RDPROBE') or os.path.join(ROOT, 'payload/setup/rdprobe')
 
 def sh(*a):
     r = subprocess.run(a, capture_output=True, text=True)
@@ -32,7 +34,10 @@ def cdhash(path):
 
 def main():
     mode = sys.argv[1] if len(sys.argv) > 1 else 'install'
-    assert mode in ('install', 'remove')
+    assert mode in ('install', 'remove', 'probe')
+    binary = RDPROBE if mode == 'probe' else RDSETUP
+    if not os.path.isfile(binary):
+        sys.exit(f"!! missing {binary}: build the read-only probe with src/build_rdprobe.sh (requires Xcode + ldid)")
     ticket = IM4M(open(osbcfg.out('apticket.im4m'), 'rb').read())
     os.makedirs(osbcfg.WORK, exist_ok=True)
     # ramdisk payload (raw APFS image)
@@ -50,7 +55,7 @@ def main():
         dst = os.path.join(mnt, 'usr/local/bin/restored_external')
         if not os.path.exists(dst):
             sys.exit("!! restore ramdisk has no usr/local/bin/restored_external")
-        shutil.copyfile(RDSETUP, dst); os.chmod(dst, 0o755)
+        shutil.copyfile(binary, dst); os.chmod(dst, 0o755)
         os.makedirs(os.path.join(mnt, 'usr/local/share/dualboot'), exist_ok=True)
         open(os.path.join(mnt, 'usr/local/share/dualboot/mode'), 'w').write(mode + '\n')
         subprocess.run(['sync'])
@@ -63,7 +68,7 @@ def main():
     ver, = struct.unpack_from('<I', tc, 0); n, = struct.unpack_from('<I', tc, 20)
     assert ver == 1 and len(tc) == 24 + 22 * n, f"unexpected trust cache v{ver} len {len(tc)}"
     ents = [tc[24 + 22 * i:24 + 22 * (i + 1)] for i in range(n)]
-    e = cdhash(RDSETUP) + b'\x02\x00'
+    e = cdhash(binary) + b'\x02\x00'
     if e not in ents:
         ents.append(e)
     ents.sort()
