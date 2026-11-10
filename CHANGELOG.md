@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added a separate, opt-in USB probe variant (`--variant bootargs`) that explicitly sets **volatile** `rd=md0 -v debug=0x2014e` on the patched iBEC immediately before `bootx`, detecting a rejected command instead of treating it as a successful kernel boot. The installation and existing boot variants remain unchanged.
+- Recorded the iPhone 11 Pro Max 27.0.1 physical results honestly: the stock control rebooted to stock iOS, and the minimal-firmware probe still did not return a listener. Neither observation verifies a restore ramdisk boot or jailbreak.
+
 - Added opt-in `probe-usb --variant stock` and `--variant minimal` diagnostics for the iPhone 11 Pro Max black-screen boot. The stock variant repackages Apple's unmodified RestoreRamDisk and RestoreTrustCache without injecting a binary and passively watches post-boot USB; the minimal variant removes peripheral firmware while retaining SPTM, TXM and both trust caches. Both reject implicit installation and require `--boot` before transmitting a chain. The standard installer and default probe behavior are unchanged.
 - Added a host-side `rd=md0` artifact check before experimental boot, explicit Recovery/DFU exclusion from the stock USB observer, and offline checks that the stock baseline neither mounts nor injects into the ramdisk. Neither alternative is physically validated; seeing a USB product ID would not by itself prove successful ramdisk startup.
 - Added read-only post-`bootx` diagnostics after the first physical iPhone 11 Pro Max trial reached `bootx` but produced a black screen and no USB probe response: the boot chain now reports the actual `irecovery -c bootx` exit/output and observes Apple USB product-ID transitions. A command being issued is no longer presented as proof that the custom kernel/ramdisk booted.

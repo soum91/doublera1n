@@ -100,6 +100,36 @@ class BootChainDiagnosticsTests(unittest.TestCase):
             with self.assertRaisesRegex(SystemExit, 'forbidden for 2nd Data'):
                 chain.main()
 
+    def test_explicit_probe_bootargs_are_volatile_and_checked(self):
+        chain = load_boot_chain()
+        with mock.patch.object(chain, 'cmd') as cmd:
+            chain.set_probe_bootargs()
+        cmd.assert_called_once_with('setenv boot-args rd=md0 -v debug=0x2014e')
+
+    def test_explicit_probe_bootargs_refuse_jailbreak(self):
+        chain = load_boot_chain()
+        chain.OSBJB = True
+        with self.assertRaisesRegex(SystemExit, 'forbidden for 2nd Data'):
+            chain.set_probe_bootargs()
+
+    def test_explicit_probe_bootargs_precede_bootx(self):
+        chain = load_boot_chain()
+        chain.FIRMWARE = []
+        chain.send = mock.Mock()
+        chain.upload = mock.Mock()
+        chain.recovery = mock.Mock(return_value=object())
+        chain.recovery_devices = mock.Mock(return_value=iter(()))
+        chain.observe_boot_usb = mock.Mock()
+        events = []
+        chain.set_probe_bootargs = mock.Mock(side_effect=lambda: events.append('bootargs'))
+        with (mock.patch.object(sys, 'argv', ['boot_chain.py', '--probe-explicit-bootargs']),
+              mock.patch.object(chain.subprocess, 'run',
+                                side_effect=lambda *a, **kw: (
+                                    events.append('bootx') or subprocess.CompletedProcess([], 0, stdout='', stderr='')
+                                ))):
+            chain.stages_from_firmware()
+        self.assertEqual(events, ['bootargs', 'bootx'])
+
 
 if __name__ == '__main__':
     unittest.main()

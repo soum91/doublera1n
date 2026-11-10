@@ -514,6 +514,8 @@ def cmd_usb_probe(a):
         say("building a STOCK restore ramdisk baseline (no injected executable or APFS operations) ...")
     elif a.variant == 'minimal':
         say("building the read-only probe with a minimal peripheral-firmware boot plan ...")
+    elif a.variant == 'bootargs':
+        say("building the read-only probe with explicit VOLATILE iBEC rd=md0 boot arguments ...")
     else:
         say("building a standalone read-only probe ramdisk (no DataB setup code included) ...")
     build_setup_chain(ws, 'stock' if a.variant == 'stock' else 'probe')
@@ -524,7 +526,8 @@ def cmd_usb_probe(a):
     warn("FIRST PHYSICAL TEST: custom iBSS/iBEC/kernel/ramdisk will be sent to the phone. "
          "The probe itself performs NO filesystem operations, but untested boot-chain changes may still fail. "
          "Have an encrypted backup and recovery plan.")
-    args = ['--probe-minimal-fw'] if a.variant == 'minimal' else []
+    args = (['--probe-minimal-fw'] if a.variant == 'minimal' else
+            ['--probe-explicit-bootargs'] if a.variant == 'bootargs' else [])
     r = run(sys.executable, os.path.join(LIB, 'boot_chain.py'), *args, env=ws.env(), check=False)
     if r.returncode:
         die("read-only probe chain failed. Do not run the installer. Restart normally if necessary.")
@@ -820,9 +823,10 @@ def main():
     s.add_argument('--skip-precheck', action='store_true')
     s = sub.add_parser('probe-usb', help='prepare read-only restore-USB handshake (never creates DataB)')
     s.add_argument('--ipsw'); s.add_argument('--build')
-    s.add_argument('--variant', choices=('probe', 'stock', 'minimal'), default='probe',
+    s.add_argument('--variant', choices=('probe', 'stock', 'minimal', 'bootargs'), default='probe',
                    help='probe: current listener; stock: unmodified Apple restore ramdisk; '
-                        'minimal: listener with only core firmware (all are non-installing)')
+                        'minimal: listener with only core firmware; '
+                        'bootargs: listener with explicit volatile rd=md0 (all are non-installing)')
     s.add_argument('--boot', action='store_true', help='explicitly boot the read-only probe; BACKUP FIRST')
     s = sub.add_parser('remove', help='delete DataB + Preboot files'); s.add_argument('--ipsw')
     s = sub.add_parser('provision', help='(re)apply userland fixes over SSH'); s.add_argument('--ecid')

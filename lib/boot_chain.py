@@ -24,6 +24,7 @@ OPTIONAL = {'WCH.img4'}             # wireless-charging firmware: iPads have non
 # experiment; only peripheral firmwares are omitted. Never use for installation.
 PROBE_CORE_FIRMWARE = frozenset({'SPTM.img4', 'TXM.img4',
                                  'StaticTrustCache.img4', 'RestoreTrustCache.img4'})
+PROBE_BOOTARGS = 'rd=md0 -v debug=0x2014e'
 RECOVERY_PIDS = (0x1280, 0x1281, 0x1282, 0x1283)  # libirecovery's Recovery A/B/C/D
 if OSB: FIRMWARE = [f for f in FIRMWARE if f[0] != 'StaticTrustCache.img4']   # System TC sent as rtsc (mk_osb.py)
 
@@ -126,6 +127,20 @@ def cmd(c, may_disconnect=False):
     finally:
         usb.util.dispose_resources(dev)
 
+def set_probe_bootargs():
+    """Set volatile iBEC boot args, independently of the patched format string.
+
+    Unlike setenvnp, setenv never writes the iPhone's persistent NVRAM. This
+    diagnostic is forbidden for the OS B and jailbreak boot paths.
+    """
+    if OSB or OSBJB:
+        sys.exit('!! explicit probe boot-args are forbidden for 2nd Data/jailbreak boots')
+    print(f'[probe] setting VOLATILE boot-args: {PROBE_BOOTARGS}', flush=True)
+    # Fail closed if the recovery/iBEC command is refused; otherwise another
+    # ambiguous bootx would be indistinguishable from our previous attempts.
+    cmd('setenv boot-args ' + PROBE_BOOTARGS)
+    print('[probe] volatile setenv accepted (actual kernel arguments still unverified)', flush=True)
+
 def send(name, c, pause=0):
     print(f" - {name}", flush=True)
     upload(name); cmd(c)
@@ -139,6 +154,8 @@ def main():
         FIRMWARE = [entry for entry in FIRMWARE if entry[0] in PROBE_CORE_FIRMWARE]
         print('[probe] experimental minimal-firmware boot: SPTM, TXM, static/restore trust caches only',
               flush=True)
+    if '--probe-explicit-bootargs' in sys.argv and (OSB or OSBJB):
+        sys.exit('!! explicit probe boot-args are forbidden for 2nd Data/jailbreak boots')
     out = subprocess.run(['irecovery', '-q'], capture_output=True, text=True).stdout
     if RESUME:                           # iBEC already up (an earlier run died after [2]): continue from firmware
         if 'NONC:' not in out or 'PWND' in out: sys.exit("--resume needs the device sitting in iBEC")
@@ -192,6 +209,8 @@ def stages_from_firmware():
     send('DeviceTree.img4', 'devicetree')
     send('SEP.img4', 'rsepfirmware')
     print(" - Kernelcache.img4", flush=True); upload('Kernelcache.img4')
+    if '--probe-explicit-bootargs' in sys.argv:
+        set_probe_bootargs()
     print("[6] bootx", flush=True)
     usb.util.dispose_resources(recovery(10))
     result = subprocess.run(['irecovery', '-c', 'bootx'], capture_output=True, text=True)
