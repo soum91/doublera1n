@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import zipfile
 
 REPORT_PREFIXES = ('panic-full', 'panic-base', 'panic.', 'resetcounter')
 REPORT_SUFFIXES = ('.ips', '.panic', '.plist', '.crash', '.txt')
@@ -30,40 +31,76 @@ CLUES = (
 )
 
 
-def eligible(path):
-    name = path.name.lower()
-    return path.is_file() and name.startswith(REPORT_PREFIXES) and (
+def eligible(name):
+    name = Path(name).name.lower()
+    return name.startswith(REPORT_PREFIXES) and (
         name.endswith(REPORT_SUFFIXES) or '.ips.' in name)
 
 
 def find_reports(root):
-    # Limit walking to a bounded directory tree. The crashreport tool copies
-    # files under the caller's requested directory, not the entire computer.
-    return sorted((p for p in root.rglob('*') if eligible(p)),
-                  key=lambda p: p.stat().st_mtime, reverse=True)
+    """Load a folder or a ZIP export; never unpack potentially untrusted paths."""
+    if root.is_file() and zipfile.is_zipfile(root):
+        with zipfile.ZipFile(root) as archive:
+            for entry in archive.infolist():
+                if eligible(entry.filename) and entry.file_size <= 2_000_000:
+                    with archive.open(entry) as stream:
+                        yield Path(entry.filename).name, stream.read(2_000_000).decode('utf-8', errors='replace')
+    elif root.is_dir():
+        for path in root.rglob('*'):
+            if path.is_file() and eligible(path.name):
+                with path.open('rb') as stream:
+                    yield path.name, stream.read(2_000_000).decode('utf-8', errors='replace')
 
 
-def describe(path):
-    # Raw reports may contain user/device identifiers. Report only the file
-    # name, modification time, and the presence of diagnostic clue families.
-    content = path.read_bytes()[:2_000_000].decode('utf-8', errors='replace')
-    matched = [name for name, pattern in CLUES if pattern.search(content)]
-    timestamp = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
-    return timestamp.strftime('%Y-%m-%d %H:%M UTC'), matched
+def report_time(content):
+    # File metadata belongs to the COPY, not the original event. ResetCounter
+    # reports in particular can all have identical copy/ZIP mtimes.
+    stamp = re.search(r'(?m)^Date:\s*(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d(?:\.\d+)? [+-]\d{4})', content)
+    if not stamp:
+        stamp = re.search(r'"timestamp"\s*:\s*"(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d(?:\.\d+)? [+-]\d{4})"', content)
+    if not stamp:
+        return None
+    value = stamp.group(1)
+    fmt = '%Y-%m-%d %H:%M:%S.%f %z' if '.' in value else '%Y-%m-%d %H:%M:%S %z'
+    try:
+        return datetime.strptime(value, fmt)
+    except ValueError:
+        return None
+
+
+def report_field(content, name):
+    match = re.search(r'(?m)^' + re.escape(name) + r':\s*([^\r\n]+)', content)
+    return match.group(1).strip() if match else None
+
+
+def describe(name, content):
+    # Never dump original report contents; they can contain IDs and secrets.
+    stamp = report_time(content)
+    display_time = stamp.strftime('%Y-%m-%d %H:%M:%S %z') if stamp else 'time unavailable'
+    if name.lower().startswith('resetcounter'):
+        count = report_field(content, 'Boot failure count') or '?'
+        stage = report_field(content, 'Boot stage') or '?'
+        faults = report_field(content, 'Boot faults') or '?'
+        return stamp, display_time, f'Boot failure count={count}; boot stage={stage}; faults={faults}'
+    matched = [label for label, pattern in CLUES if pattern.search(content)]
+    return stamp, display_time, ('Panic clue families: ' + (', '.join(matched) if matched else 'none recognized'))
 
 
 def analyze(directory, limit):
-    reports = find_reports(directory)
+    reports = [(name, *describe(name, content)) for name, content in find_reports(directory)]
     if not reports:
         print('No panic/reset reports found. Early boot failures can leave NO stored crash report.')
         print('This result does not prove the kernel, SEP, or ramdisk started.')
         return 0
+    reports.sort(key=lambda report: report[1] or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
     print(f'Found {len(reports)} local panic/reset report(s); showing up to {limit} newest:')
-    for path in reports[:limit]:
-        timestamp, matched = describe(path)
-        print(f'  {timestamp}  {path.name}')
-        print('    Clue families: ' + (', '.join(matched) if matched else 'none recognized'))
-    print('These are keyword clues, NOT a verified cause. Compare timestamps to the actual test.')
+    if not any(name.lower().startswith('panic') for name, *_ in reports):
+        print('  No panic-full/panic-base reports in this collection; ResetCounter is not a kernel backtrace.')
+    for name, _date, display_time, summary in reports[:limit]:
+        print(f'  {display_time}  {name}')
+        print('    ' + summary)
+    print('Boot stage codes are reported verbatim; their meanings are not independently verified.')
+    print('Clues are not a verified cause. Compare report dates to the actual boot attempts.')
     print('Original reports remain local and unchanged; inspect one before diagnosing a specific failure.')
     return 0
 
@@ -109,8 +146,8 @@ def main(argv=None):
     col.add_argument('--output', type=Path, help='existing or new local directory; default uses a unique temp directory')
     col.add_argument('--udid', help='explicit trusted device ID if multiple iPhones are connected')
     col.add_argument('--limit', type=int, default=8, help='maximum report summaries to show')
-    scan = sub.add_parser('analyze', help='analyze local reports, never connect to the phone')
-    scan.add_argument('directory', type=Path)
+    scan = sub.add_parser('analyze', help='analyze a folder or ZIP of reports, never connect to the phone')
+    scan.add_argument('directory', type=Path, help='directory or ZIP of previously exported reports')
     scan.add_argument('--limit', type=int, default=8)
     args = parser.parse_args(argv)
     if args.limit < 1 or args.limit > 100:
@@ -121,8 +158,8 @@ def main(argv=None):
             collect(root, args.udid)
         else:
             root = args.directory
-            if not root.is_dir():
-                raise RuntimeError(f'Not a directory: {root}')
+            if not root.is_dir() and not (root.is_file() and zipfile.is_zipfile(root)):
+                raise RuntimeError(f'Not a directory or ZIP archive: {root}')
         return analyze(root, args.limit)
     except (OSError, RuntimeError, subprocess.TimeoutExpired) as exc:
         print(f'ERROR: {exc}', file=sys.stderr)
