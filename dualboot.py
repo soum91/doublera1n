@@ -532,11 +532,14 @@ def cmd_usb_probe(a):
         say('building a read-only probe with the untouched Apple kernel and existing patched TXM ...')
     elif a.variant == 'lean-kernel':
         say('building a read-only probe with ONLY AMFI trust-cache / launch-constraint kernel patches ...')
+    elif a.variant == 'reference-order':
+        say('building a lean-kernel, read-only probe with the A12/A13 reference boot order ...')
     else:
         say("building a standalone read-only probe ramdisk (no DataB setup code included) ...")
     build_setup_chain(ws, 'stock' if a.variant == 'stock' else 'probe',
                       native_setup_ibec=a.variant == 'native-ibec',
-                      kernel_variant=a.variant if a.variant in ('stock-kernel', 'lean-kernel') else 'full')
+                      kernel_variant=('lean-kernel' if a.variant == 'reference-order' else
+                                      a.variant if a.variant in ('stock-kernel', 'lean-kernel') else 'full'))
     if not a.boot:
         say("Probe prepared on the Mac. No boot files were sent to the phone.")
         say("After making a backup, run the same command with --boot to test the USB return path.")
@@ -545,8 +548,10 @@ def cmd_usb_probe(a):
          "The probe itself performs NO filesystem operations, but untested boot-chain changes may still fail. "
          "Have an encrypted backup and recovery plan.")
     args = (['--probe-minimal-fw'] if a.variant == 'minimal' else
+            ['--probe-reference-order', '--probe-explicit-bootargs'] if a.variant == 'reference-order' else
             ['--probe-explicit-bootargs'] if a.variant in ('bootargs', 'native-ibec', 'stock-kernel', 'lean-kernel') else [])
-    r = run(sys.executable, os.path.join(LIB, 'boot_chain.py'), *args, env=ws.env(), check=False)
+    boot_env = ws.env(DOUBLERA1N_READ_ONLY_PROBE='1') if a.variant == 'reference-order' else ws.env()
+    r = run(sys.executable, os.path.join(LIB, 'boot_chain.py'), *args, env=boot_env, check=False)
     if r.returncode:
         die("read-only probe chain failed. Do not run the installer. Restart normally if necessary.")
     say("Boot command issued; ramdisk startup is NOT verified. "
@@ -842,13 +847,14 @@ def main():
     s = sub.add_parser('probe-usb', help='prepare read-only restore-USB handshake (never creates DataB)')
     s.add_argument('--ipsw'); s.add_argument('--build')
     s.add_argument('--variant', choices=('probe', 'stock', 'minimal', 'bootargs', 'native-ibec',
-                                         'stock-kernel', 'lean-kernel'), default='probe',
+                                         'stock-kernel', 'lean-kernel', 'reference-order'), default='probe',
                    help='probe: current listener; stock: unmodified Apple restore ramdisk; '
                         'minimal: listener with only core firmware; '
                         'bootargs: listener with explicit volatile rd=md0; '
                         'native-ibec: use patched actual iBEC; '
                         'stock-kernel: Apple kernel plus patched TXM; '
-                        'lean-kernel: AMFI-only kernel plan plus patched TXM '
+                        'lean-kernel: AMFI-only kernel plan plus patched TXM; '
+                        'reference-order: lean kernel plus A12/A13 boot staging '
                         '(all non-installing, with volatile rd=md0)')
     s.add_argument('--boot', action='store_true', help='explicitly boot the read-only probe; BACKUP FIRST')
     s = sub.add_parser('remove', help='delete DataB + Preboot files'); s.add_argument('--ipsw')

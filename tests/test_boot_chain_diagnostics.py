@@ -34,6 +34,36 @@ def load_boot_chain():
 
 
 class BootChainDiagnosticsTests(unittest.TestCase):
+    def test_reference_order_stages_dt_before_trust_caches_and_ramdisk(self):
+        chain = load_boot_chain()
+        chain.send = mock.Mock()
+        chain.upload = mock.Mock()
+        chain.recovery = mock.Mock(return_value=object())
+        chain.recovery_devices = mock.Mock(return_value=iter(()))
+        chain.observe_boot_usb = mock.Mock()
+        chain.set_probe_bootargs = mock.Mock()
+        reply = subprocess.CompletedProcess([], 0, stdout='', stderr='')
+        with (mock.patch.object(sys, 'argv', ['boot_chain.py', '--probe-reference-order',
+                                             '--probe-explicit-bootargs']),
+              mock.patch.object(chain.os.path, 'exists', return_value=True),
+              mock.patch.object(chain.time, 'sleep'),
+              mock.patch.object(chain.subprocess, 'run', return_value=reply)):
+            chain.stages_from_firmware()
+        names = [c.args[0] for c in chain.send.call_args_list]
+        self.assertEqual(names[:2], ['SPTM.img4', 'TXM.img4'])
+        self.assertLess(names.index('SEP.img4'), names.index('PMP.img4'))
+        self.assertLess(names.index('DeviceTree.img4'), names.index('StaticTrustCache.img4'))
+        self.assertLess(names.index('RestoreTrustCache.img4'), names.index('RestoreRamdisk.img4'))
+        self.assertEqual(names.count('SEP.img4'), 1)
+        self.assertEqual(names.count('RestoreTrustCache.img4'), 1)
+        chain.set_probe_bootargs.assert_called_once()
+
+    def test_reference_order_cannot_be_called_from_installer(self):
+        chain = load_boot_chain()
+        with mock.patch.object(sys, 'argv', ['boot_chain.py', '--probe-reference-order']):
+            with self.assertRaisesRegex(SystemExit, 'restricted to the read-only probe'):
+                chain.main()
+
     def test_first_stage_uses_active_venv_and_reveals_sender_error(self):
         chain = load_boot_chain()
         with mock.patch.object(chain.subprocess, 'run', side_effect=[

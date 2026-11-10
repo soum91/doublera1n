@@ -25,6 +25,10 @@ OPTIONAL = {'WCH.img4'}             # wireless-charging firmware: iPads have non
 PROBE_CORE_FIRMWARE = frozenset({'SPTM.img4', 'TXM.img4',
                                  'StaticTrustCache.img4', 'RestoreTrustCache.img4'})
 PROBE_BOOTARGS = 'rd=md0 -v debug=0x2014e'
+PROBE_REFERENCE_PREFIX = ('SPTM.img4', 'TXM.img4')
+PROBE_REFERENCE_PERIPHERALS = ('PMP.img4', 'AOP.img4', 'ANE.img4', 'AVE.img4',
+                               'ISP.img4', 'GFX.img4', 'SIO.img4', 'WCH.img4')
+PROBE_REFERENCE_TRUSTCACHES = ('StaticTrustCache.img4', 'RestoreTrustCache.img4')
 RECOVERY_PIDS = (0x1280, 0x1281, 0x1282, 0x1283)  # libirecovery's Recovery A/B/C/D
 if OSB: FIRMWARE = [f for f in FIRMWARE if f[0] != 'StaticTrustCache.img4']   # System TC sent as rtsc (mk_osb.py)
 
@@ -147,6 +151,10 @@ def send(name, c, pause=0):
     if pause: time.sleep(pause)
 
 def main():
+    if '--probe-reference-order' in sys.argv and (
+            OSB or OSBJB or '--probe-minimal-fw' in sys.argv or
+            os.environ.get('DOUBLERA1N_READ_ONLY_PROBE') != '1'):
+        sys.exit('!! reference-order is restricted to the read-only probe, not installation/OS B')
     if '--probe-minimal-fw' in sys.argv:
         if OSB or OSBJB:
             sys.exit('!! minimal firmware is forbidden for 2nd Data/jailbreak boots')
@@ -195,22 +203,53 @@ def main():
     stages_from_firmware()
 
 def stages_from_firmware():
-    print("[3] firmware", flush=True)
-    for name, pause in FIRMWARE:
-        if name in OPTIONAL and not os.path.exists(os.path.join(C, name)):
-            print(f" - {name} (not on this board)", flush=True); continue
-        send(name, 'firmware', pause)
-    if OSB and not OSBJB:
-        time.sleep(2)
-    else:
-        print("[4] ramdisk", flush=True)
+    if '--probe-reference-order' in sys.argv:
+        # The upstream A12/A13 SSH ramdisk builder stages security firmware,
+        # RestoreSEP, peripherals, DeviceTree, trust caches, then ramdisk.
+        # Deliberately experimental: the normal installer path is unchanged.
+        print('[probe] reference order: SPTM/TXM, SEP, peripherals, DeviceTree, trust caches, ramdisk',
+              flush=True)
+        available = dict(FIRMWARE)
+        print('[3] security firmware and RestoreSEP', flush=True)
+        for name in PROBE_REFERENCE_PREFIX:
+            if name in available:
+                send(name, 'firmware', available[name])
+        send('SEP.img4', 'rsepfirmware', 4)
+        print('[4] peripheral firmware, DeviceTree, trust caches, ramdisk', flush=True)
+        for name in PROBE_REFERENCE_PERIPHERALS:
+            if name not in available:
+                continue
+            if name in OPTIONAL and not os.path.exists(os.path.join(C, name)):
+                print(f' - {name} (not on this board)', flush=True)
+                continue
+            send(name, 'firmware', available[name])
+        send('DeviceTree.img4', 'devicetree')
+        for name in PROBE_REFERENCE_TRUSTCACHES:
+            if name not in available:
+                sys.exit(f'!! reference-order requires {name}; stopping before bootx')
+            send(name, 'firmware')
         send('RestoreRamdisk.img4', 'ramdisk', 2)
-    print("[5] devicetree, SEP, kernel", flush=True)
-    send('DeviceTree.img4', 'devicetree')
-    send('SEP.img4', 'rsepfirmware')
+    else:
+        print("[3] firmware", flush=True)
+        for name, pause in FIRMWARE:
+            if name in OPTIONAL and not os.path.exists(os.path.join(C, name)):
+                print(f" - {name} (not on this board)", flush=True); continue
+            send(name, 'firmware', pause)
+        if OSB and not OSBJB:
+            time.sleep(2)
+        else:
+            print("[4] ramdisk", flush=True)
+            send('RestoreRamdisk.img4', 'ramdisk', 2)
+        print("[5] devicetree, SEP, kernel", flush=True)
+        send('DeviceTree.img4', 'devicetree')
+        send('SEP.img4', 'rsepfirmware')
     print(" - Kernelcache.img4", flush=True); upload('Kernelcache.img4')
+    if '--probe-reference-order' in sys.argv:
+        time.sleep(2)
     if '--probe-explicit-bootargs' in sys.argv:
         set_probe_bootargs()
+    if '--probe-reference-order' in sys.argv:
+        time.sleep(1)
     print("[6] bootx", flush=True)
     usb.util.dispose_resources(recovery(10))
     result = subprocess.run(['irecovery', '-c', 'bootx'], capture_output=True, text=True)

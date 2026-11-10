@@ -73,6 +73,7 @@ class RestoreUsbProbeTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn('stock-kernel', proc.stdout)
         self.assertIn('lean-kernel', proc.stdout)
+        self.assertIn('reference-order', proc.stdout)
         source = (ROOT / 'dualboot.py').read_text()
         builder = (ROOT / 'lib/mk_kernel.py').read_text()
         self.assertIn("mode != 'probe'", source)
