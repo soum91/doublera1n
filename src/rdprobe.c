@@ -8,6 +8,9 @@
  */
 #include <errno.h>
 #include <netinet/in.h>
+#include <net/if.h>
+#include <sys/ioctl.h>
+#include <sys/sockio.h>
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
@@ -21,15 +24,47 @@
 #define PROBE_RUNTIME_SECONDS (15 * 60)
 
 static const char banner[] =
-    "DOUBLERA1N_USB_PROBE_V1\n"
+    "DOUBLERA1N_USB_PROBE_V2\n"
     "read_only=yes\n"
     "apfs_writes=no\n"
     "ticket_access=no\n";
 
+extern int rdprobe_init_usb(void);
+
+static int init_loopback(void) {
+    int fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (fd < 0) return -1;
+    struct ifreq flags = {0};
+    strlcpy(flags.ifr_name, "lo0", sizeof(flags.ifr_name));
+    if (ioctl(fd, SIOCGIFFLAGS, &flags) < 0) { close(fd); return -1; }
+    flags.ifr_flags |= IFF_UP;
+    if (ioctl(fd, SIOCSIFFLAGS, &flags) < 0) { close(fd); return -1; }
+    struct ifaliasreq address = {0};
+    strlcpy(address.ifra_name, "lo0", sizeof(address.ifra_name));
+    struct sockaddr_in *ip = (struct sockaddr_in *)&address.ifra_addr;
+    struct sockaddr_in *mask = (struct sockaddr_in *)&address.ifra_mask;
+    ip->sin_len = mask->sin_len = sizeof(*ip);
+    ip->sin_family = mask->sin_family = AF_INET;
+    ip->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    mask->sin_addr.s_addr = htonl(0xff000000);
+    int status = ioctl(fd, SIOCAIFADDR, &address);
+    int saved_errno = errno;
+    close(fd);
+    return status == 0 || saved_errno == EEXIST ? 0 : -1;
+}
+
 int main(void) {
     setbuf(stdout, NULL);
     signal(SIGPIPE, SIG_IGN);
-    puts("[usbprobe] read-only transport test; NO APFS operations");
+    puts("[usbprobe] V2 read-only transport test; NO APFS operations");
+    if (init_loopback() != 0) {
+        puts("[usbprobe] loopback configuration failed; no handshake claimed");
+        goto idle;
+    }
+    if (rdprobe_init_usb() != 0) {
+        puts("[usbprobe] USB initialization failed; no handshake claimed");
+        goto idle;
+    }
 
     int fd = socket(AF_INET, SOCK_STREAM, 0);
     if (fd < 0) { printf("[usbprobe] socket failed: %s\n", strerror(errno)); goto idle; }

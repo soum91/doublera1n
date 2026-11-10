@@ -40,6 +40,11 @@ def main():
     binary = RDPROBE if mode == 'probe' else RDSETUP
     if mode != 'stock' and not os.path.isfile(binary):
         sys.exit(f"!! missing {binary}: build the read-only probe with src/build_rdprobe.sh (requires Xcode + ldid)")
+    if mode == 'probe':
+        with open(binary, 'rb') as probe:
+            if b'DOUBLERA1N_USB_PROBE_V2' not in probe.read():
+                sys.exit('!! stale USB probe binary: V2 USB initialization is required. '
+                         'Run bash src/build_rdprobe.sh or pull the workflow-built binary before booting.')
     with open(osbcfg.out('apticket.im4m'), 'rb') as source:
         ticket = IM4M(source.read())
     os.makedirs(osbcfg.WORK, exist_ok=True)

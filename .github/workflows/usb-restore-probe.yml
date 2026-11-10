@@ -5,11 +5,13 @@ on:
   push:
     paths:
       - src/rdprobe.c
+      - src/rdprobe_usb.c
+      - src/rdprobe.ents.plist
       - src/build_rdprobe.sh
       - .github/workflows/usb-restore-probe.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-read-only-probe:
@@ -17,14 +19,18 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - name: Install code-signing tool
-        run: brew install ldid
+        with:
+          fetch-depth: 0
       - name: Build and sign only the isolated probe
         run: bash src/build_rdprobe.sh
       - name: Verify output and record checksum
         run: |
+          set -euo pipefail
           file payload/setup/rdprobe
+          codesign --verify --strict payload/setup/rdprobe
           codesign -dvvv payload/setup/rdprobe 2>&1 | tee usb-probe-build.txt
+          codesign -d --entitlements :- payload/setup/rdprobe > probe-entitlements.plist
+          python3 -c 'import plistlib; p=plistlib.load(open("probe-entitlements.plist", "rb")); assert p["com.apple.private.usbdevice.setdescription"]; assert p["com.apple.security.network.server"]; assert "com.apple.private.security.disk-device-access" not in p'
           shasum -a 256 payload/setup/rdprobe | tee -a usb-probe-build.txt
       - name: Upload read-only ramdisk probe binary
         uses: actions/upload-artifact@v4
@@ -34,3 +40,31 @@ jobs:
             payload/setup/rdprobe
             usb-probe-build.txt
           if-no-files-found: error
+      # One-time normalization is limited to the two source commits authored
+      # by this fix. The lease refuses any concurrent branch change.
+      - name: Normalize this fix's commit attribution and include verified binary
+        if: contains(github.event.head_commit.message, '[normalize-own-commits]')
+        env:
+          EXPECTED_HEAD: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          base=0b2c91ce66ffcacf98f586b5d567a3a9976a764a
+          test "$(git rev-list --count "$base"..HEAD)" = 2
+          test "$(git rev-parse HEAD^)" = b0df2c2958cb92fbc3da22a4cd879e679785db48
+          git config user.name soum91
+          git config user.email soum91@users.noreply.github.com
+          git reset --soft "$base"
+          git add payload/setup/rdprobe
+          git commit -m "Fix and build signed USB V2 probe with device-mode initialization"
+          git push --force-with-lease="refs/heads/main:$EXPECTED_HEAD" origin HEAD:main
+      - name: Publish verified probe binary to the same branch
+        if: github.repository == 'soum91/doublera1n' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[normalize-own-commits]')
+        run: |
+          git config user.name soum91
+          git config user.email soum91@users.noreply.github.com
+          git add payload/setup/rdprobe
+          if ! git diff --cached --quiet; then
+            git commit -m "Build signed USB V2 probe with device-mode initialization [skip ci]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi

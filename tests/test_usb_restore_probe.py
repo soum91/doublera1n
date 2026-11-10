@@ -83,9 +83,9 @@ class RestoreUsbProbeTests(unittest.TestCase):
         self.assertIn('patched TXM retained', builder)
 
     def test_banner_protocol(self):
-        good = b'DOUBLERA1N_USB_PROBE_V1\nread_only=yes\napfs_writes=no\n'
+        good = b'DOUBLERA1N_USB_PROBE_V2\nread_only=yes\napfs_writes=no\n'
         self.assertTrue(client.valid_banner(good))
-        self.assertFalse(client.valid_banner(b'DOUBLERA1N_USB_PROBE_V1\nread_only=no\n'))
+        self.assertFalse(client.valid_banner(b'DOUBLERA1N_USB_PROBE_V2\nread_only=no\n'))
         self.assertFalse(client.valid_banner(b'unknown service'))
 
     def test_probe_is_separate_from_disk_changing_installer(self):

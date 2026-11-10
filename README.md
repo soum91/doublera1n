@@ -60,6 +60,11 @@ A passed precheck **does not mean the Pro Max has booted successfully**. It does
 
 ### USB-only diagnostic experiment (no UART board required)
 
+**V2 correction:** Earlier V1 tests replaced Apple's `restored_external` but never initialized device-mode USB. A listening TCP socket alone does not bring the phone back onto the USB bus. V2 configures loopback and the IOKit `standardMuxOnly` descriptor, with USB/network entitlements. This defect invalidates the earlier probe's ability to isolate kernel failure; it does not establish that the kernel actually booted. The host now requires the V2 banner and refuses a stale V1 binary before sending boot files.
+
+Pull `main` after the macOS USB probe workflow has finished to obtain the signed V2 binary. Alternatively, `bash src/build_rdprobe.sh` builds it locally with Xcode's iPhoneOS SDK and native ad-hoc `codesign`. Then the existing `probe-usb --variant probe --build 24A446 --boot` command tests the corrected transport with the original full firmware/kernel plan, without introducing another kernel or boot-order variation. Physical validation is pending; the installer still requires UART.
+
+
 The original installer **still requires UART** to recover the setup result and installed APTicket. Do **not** bypass that check and run `Start`: it is unsafe to attempt DataB setup without a return path. Some RP2354A service boards can pwn DFU without exposing a `/dev/cu.usbmodem*` serial port.
 
 An independent, **read-only restore-ramdisk USB transport probe** is now available. It tests whether the Mac can reach a TCP listener in the ramdisk through `usbmuxd`/`iproxy`. The probe **never invokes `rdsetup`**, never creates a volume, and never reads an APTicket. Passing it would only establish a possible return transport, **not** validate a jailbreak installation. It is not a no-UART installer yet.
