@@ -68,6 +68,17 @@ An independent, **read-only restore-ramdisk USB transport probe** is now availab
 2. With a current encrypted backup, the iPhone in pwned DFU, and a checked/selected **exact** build, prepare the probe on the Mac: `./.venv/bin/python3 dualboot.py probe-usb --build 24A446`. Preparation downloads the full IPSW and creates boot artifacts on the Mac; it does not send anything to the phone.
 3. **Only after reviewing the physical boot risk**, add `--boot` to that command. It sends a modified boot chain and the read-only probe ramdisk, then waits up to 120 seconds for the USB handshake. The phone may need a force-reboot to return to stock. No iPhone 11 Pro Max boot is established yet.
 
+#### Alternate diagnostics after a black-screen / no-USB boot
+
+The first physical `d431ap` / `24A446` probe got through iBEC and accepted `bootx`, but the Apple Recovery USB device disappeared and **neither usbmuxd nor raw USB enumeration returned**. The kernel and restore ramdisk have **not** been shown to start. Re-running the same probe provides no new evidence.
+
+The following two variants use the **same exact Pro Max build and personalized boot chain**, but isolate different variables. They are opt-in experiments, **not a jailbreak**:
+
+1. **Stock baseline, recommended first:** `./.venv/bin/python3 dualboot.py probe-usb --variant stock --build 24A446` prepares an original Apple RestoreRamDisk and RestoreTrustCache with no executable injection or APFS modification. It does not require the custom `rdprobe` binary. Only with an encrypted backup and a recovery plan, append `--boot` to send the chain. The Mac passively observes USB product IDs for up to 120 seconds. If Finder offers **Restore** or **Update**, do **not** click either. Seeing USB again is not proof that any jailbreak can run.
+2. **Minimal peripheral firmware:** `./.venv/bin/python3 dualboot.py probe-usb --variant minimal --build 24A446` prepares the existing standalone read-only TCP probe, but the boot phase sends only SPTM, TXM, StaticTrustCache and RestoreTrustCache before the ramdisk, DeviceTree, SEP and kernel. Optional ANE/AOP/AVE/GFX/ISP/PMP/SIO/WCH images are omitted. Append `--boot` only for a separately authorized physical trial. This may fail earlier if omitted firmware is required.
+
+Each variant validates that the patched iBoot artifact contains the expected `rd=md0` argument before sending anything, but only UART/kernel logs can confirm the actual runtime argument or pinpoint an early panic. A successful stock baseline would narrow the problem to the custom ramdisk or its trust cache; a failed stock baseline instead points to the shared boot-chain components. **Never run `install`, `Start`, or `remove` as a diagnostic.**
+
 This experiment does **not** write DataB, but a previously untested boot chain is still risky. If the USB handshake fails, stop. A production no-UART installer requires its own authenticated and validated ticket/status transfer implementation and independent review.
 
 **Pre-check** (`lib/precheck.py`) runs before anything touches the phone: it pulls only BuildManifest, kernelcache, TXM, iBSS, iBEC and DeviceTree (~70 MB) with `ipsw extract --remote`, builds the profile, applies every patch and checks TSS. Release builds come from ipsw.me, betas and RCs from AppleDB. If your build is on neither, give the IPSW yourself (file or URL).

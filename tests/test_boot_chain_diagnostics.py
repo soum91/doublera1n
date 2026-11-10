@@ -79,6 +79,27 @@ class BootChainDiagnosticsTests(unittest.TestCase):
         self.assertIn('bootx command exit=1', output.getvalue())
         self.assertIn('kernel and ramdisk startup NOT verified', output.getvalue())
 
+    def test_minimal_probe_keeps_core_security_firmware_and_trust_caches(self):
+        chain = load_boot_chain()
+        self.assertEqual(chain.PROBE_CORE_FIRMWARE,
+                         {'SPTM.img4', 'TXM.img4', 'StaticTrustCache.img4', 'RestoreTrustCache.img4'})
+        with (mock.patch.object(sys, 'argv', ['boot_chain.py', '--probe-minimal-fw']),
+              mock.patch.object(chain, 'device_diagnostics'),
+              mock.patch.object(chain.subprocess, 'run', side_effect=[
+                  subprocess.CompletedProcess([], 0, stdout='PWND: usbliter8'),
+                  subprocess.CompletedProcess([], 1, stdout='', stderr='test stop before upload'),
+              ])):
+            with self.assertRaisesRegex(SystemExit, 'iBSS send failed'):
+                chain.main()
+        self.assertEqual({name for name, _ in chain.FIRMWARE}, chain.PROBE_CORE_FIRMWARE)
+
+    def test_minimal_firmware_refuses_jailbreak_boot(self):
+        chain = load_boot_chain()
+        chain.OSBJB = True
+        with mock.patch.object(sys, 'argv', ['boot_chain.py', '--probe-minimal-fw']):
+            with self.assertRaisesRegex(SystemExit, 'forbidden for 2nd Data'):
+                chain.main()
+
 
 if __name__ == '__main__':
     unittest.main()

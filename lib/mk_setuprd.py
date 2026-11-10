@@ -2,11 +2,13 @@
 """Setup ramdisk for the dualboot tool: Apple's restore ramdisk (RestoreRamDisk of the IPSW, unmodified except for
 two files) whose restored_external is rdsetup, plus its trust cache with rdsetup's cdhash added.
 
-  mk_setuprd.py install|remove|probe -> $OSB_WORK/setuprd-<mode>.img4 (rdsk), $OSB_WORK/setuptc-<mode>.img4 (rtsc)
+  mk_setuprd.py install|remove|probe|stock -> $OSB_WORK/setuprd-<mode>.img4 (rdsk), $OSB_WORK/setuptc-<mode>.img4 (rtsc)
 
   /usr/local/bin/restored_external    = rdsetup (payload/setup/rdsetup, built from src/rdsetup.c)
   /usr/local/share/dualboot/mode      = "install" | "remove" | "probe"
 The probe substitutes a separate read-only TCP listener binary for rdsetup.
+The stock baseline leaves Apple's restore ramdisk and trust cache byte-for-byte intact
+inside their re-signed IMG4 containers: no payload injection, disk mount, or setup program.
 Both are signed with $OSB_OUT/apticket.im4m (our iBoot does not check AP image signatures anyway).
 Nothing here touches the phone."""
 import os, shutil, struct, subprocess, sys, tempfile
@@ -34,12 +36,25 @@ def cdhash(path):
 
 def main():
     mode = sys.argv[1] if len(sys.argv) > 1 else 'install'
-    assert mode in ('install', 'remove', 'probe')
+    assert mode in ('install', 'remove', 'probe', 'stock')
     binary = RDPROBE if mode == 'probe' else RDSETUP
-    if not os.path.isfile(binary):
+    if mode != 'stock' and not os.path.isfile(binary):
         sys.exit(f"!! missing {binary}: build the read-only probe with src/build_rdprobe.sh (requires Xcode + ldid)")
-    ticket = IM4M(open(osbcfg.out('apticket.im4m'), 'rb').read())
+    with open(osbcfg.out('apticket.im4m'), 'rb') as source:
+        ticket = IM4M(source.read())
     os.makedirs(osbcfg.WORK, exist_ok=True)
+    if mode == 'stock':
+        # Diagnostic control: run the unmodified Apple restore environment. It
+        # may enumerate as a restore device, but NO restore commands are sent.
+        for key, output, tag in (('RestoreRamDisk', 'setuprd-stock.img4', 'rdsk'),
+                                 ('RestoreTrustCache', 'setuptc-stock.img4', 'rtsc')):
+            with open(osbcfg.ipsw(key), 'rb') as source:
+                im4p = IM4P(source.read())
+            im4p.fourcc = tag
+            with open(osbcfg.work(output), 'wb') as dest:
+                dest.write(IMG4(im4p=im4p, im4m=ticket).output())
+        print('  stock restore ramdisk baseline: original ramdisk + trust cache, no injection')
+        return
     # ramdisk payload (raw APFS image)
     rd = IM4P(open(osbcfg.ipsw('RestoreRamDisk'), 'rb').read())
     try:

@@ -13,18 +13,26 @@ import time
 
 PORT = 27047
 BANNER = b"DOUBLERA1N_USB_PROBE_V1\n"
+BOOTROM_OR_RECOVERY_PIDS = frozenset({0x1227, 0x1280, 0x1281, 0x1282, 0x1283})
+
+
+def apple_usb_pids():
+    """Passive Apple USB enumeration. No handshake, control transfer, or writes."""
+    try:
+        import usb.core
+        devices = usb.core.find(find_all=True, idVendor=0x05ac)
+        return tuple(sorted({d.idProduct for d in devices}))
+    except Exception as exc:
+        print(f'Apple USB enumeration unavailable: {type(exc).__name__}: {exc}', flush=True)
+        return None
 
 
 def final_usb_diagnostics():
     """Read-only cross-check when usbmuxd/iproxy cannot reach the probe."""
-    try:
-        import usb.core
-        devices = usb.core.find(find_all=True, idVendor=0x05ac)
-        pids = sorted({d.idProduct for d in devices})
+    pids = apple_usb_pids()
+    if pids is not None:
         print('Apple USB products:', ', '.join(f'0x{x:04x}' for x in pids) if pids else '(none)',
               flush=True)
-    except Exception as exc:
-        print(f'Apple USB enumeration unavailable: {type(exc).__name__}: {exc}', flush=True)
     try:
         r = subprocess.run(['irecovery', '-q'], capture_output=True, text=True, timeout=10)
         fields = ('MODE:', 'CPID:', 'PRODUCT:', 'MODEL:', 'PWND:')
@@ -42,6 +50,38 @@ def usbmux_ids():
 
 def valid_banner(data):
     return data.startswith(BANNER) and b"read_only=yes\n" in data
+
+
+def observe_stock_usb(timeout):
+    """Check whether *any* post-boot USB enumeration returns for the stock control.
+
+    Never mistake a Recovery/DFU PID for a running ramdisk. Another connected
+    Apple peripheral could be counted here: this is only an observation.
+    """
+    end = time.monotonic() + timeout
+    previous_pids = object()
+    previous_ids = object()
+    print('STOCK restore-ramdisk baseline: observing Apple USB (NO restore request or writes)...', flush=True)
+    while time.monotonic() < end:
+        pids = apple_usb_pids()
+        if pids != previous_pids:
+            detail = ('unavailable' if pids is None else
+                      ', '.join(f'0x{x:04x}' for x in pids) if pids else '(none)')
+            print(f'Apple USB IDs: {detail}', flush=True)
+            previous_pids = pids
+        ids = usbmux_ids()
+        if ids != previous_ids:
+            print('usbmuxd IDs:', ', '.join(ids) if ids else '(none)', flush=True)
+            previous_ids = ids
+        if ids or (pids and any(pid not in BOOTROM_OR_RECOVERY_PIDS for pid in pids)):
+            print('OBSERVED: a non-DFU/Recovery Apple USB device or usbmuxd ID returned.')
+            print('This does NOT establish ramdisk startup or authorize installation.')
+            final_usb_diagnostics()
+            return 0
+        time.sleep(1)
+    print('NO NON-RECOVERY USB RETURN for the stock restore-ramdisk baseline.', file=sys.stderr)
+    final_usb_diagnostics()
+    return 1
 
 
 def try_proxy(udid, port):
@@ -77,11 +117,15 @@ def main():
     p.add_argument('--timeout', type=int, default=120, help='seconds to wait after probe ramdisk boot')
     p.add_argument('--udid', help='device identifier for iproxy, if auto-detection is ambiguous')
     p.add_argument('--port', type=int, default=PORT)
+    p.add_argument('--observe-only', action='store_true',
+                   help='stock ramdisk baseline: monitor Apple USB without opening an iproxy listener')
     a = p.parse_args()
-    if not shutil.which('iproxy') or not shutil.which('idevice_id'):
+    if not shutil.which('idevice_id') or (not a.observe_only and not shutil.which('iproxy')):
         p.error('iproxy and idevice_id must be installed (run ./setup.sh)')
     if not 1 <= a.port <= 65535 or a.timeout < 1:
         p.error('port must be 1..65535 and timeout must be positive')
+    if a.observe_only:
+        return observe_stock_usb(a.timeout)
     end = time.monotonic() + a.timeout
     last_ids = None
     print('Looking for the read-only restore-ramdisk USB probe (no writes)...', flush=True)

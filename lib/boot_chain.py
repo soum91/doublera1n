@@ -20,6 +20,10 @@ FIRMWARE = [('ANE.img4', 0), ('AOP.img4', 0), ('AVE.img4', 1), ('SPTM.img4', 3),
             ('GFX.img4', 0), ('ISP.img4', 1), ('PMP.img4', 0), ('StaticTrustCache.img4', 0),
             ('RestoreTrustCache.img4', 0), ('SIO.img4', 0), ('WCH.img4', 0)]
 OPTIONAL = {'WCH.img4'}             # wireless-charging firmware: iPads have none
+# iOS 27's SPTM/TXM and both trust caches are kept in the controlled minimal
+# experiment; only peripheral firmwares are omitted. Never use for installation.
+PROBE_CORE_FIRMWARE = frozenset({'SPTM.img4', 'TXM.img4',
+                                 'StaticTrustCache.img4', 'RestoreTrustCache.img4'})
 RECOVERY_PIDS = (0x1280, 0x1281, 0x1282, 0x1283)  # libirecovery's Recovery A/B/C/D
 if OSB: FIRMWARE = [f for f in FIRMWARE if f[0] != 'StaticTrustCache.img4']   # System TC sent as rtsc (mk_osb.py)
 
@@ -128,6 +132,13 @@ def send(name, c, pause=0):
     if pause: time.sleep(pause)
 
 def main():
+    if '--probe-minimal-fw' in sys.argv:
+        if OSB or OSBJB:
+            sys.exit('!! minimal firmware is forbidden for 2nd Data/jailbreak boots')
+        global FIRMWARE
+        FIRMWARE = [entry for entry in FIRMWARE if entry[0] in PROBE_CORE_FIRMWARE]
+        print('[probe] experimental minimal-firmware boot: SPTM, TXM, static/restore trust caches only',
+              flush=True)
     out = subprocess.run(['irecovery', '-q'], capture_output=True, text=True).stdout
     if RESUME:                           # iBEC already up (an earlier run died after [2]): continue from firmware
         if 'NONC:' not in out or 'PWND' in out: sys.exit("--resume needs the device sitting in iBEC")
