@@ -450,14 +450,17 @@ def prepare_tickets(ws):
     run(sys.executable, os.path.join(LIB, 'mkimg4.py'), sep[0], ws.p('out/apticket.im4m'), ws.p('out/rsep.img4'),
         '--tag', 'rsep', capture=True)
 
-def prepare_iboot(ws):
+def prepare_iboot(ws, native_setup_ibec=False):
     from pyimg4 import IM4P
     import plistlib
     m = plistlib.load(open(ws.p('build/ipsw/BuildManifest.plist'), 'rb'))
     ident = [b for b in m['BuildIdentities'] if b['Info'].get('DeviceClass', '').lower() == ws.profile['board']
              and b['Info'].get('RestoreBehavior') == 'Erase'][0]
-    for key, out, args in (('iBSS', 'iBoot.min.raw', 'rd=md0 -v wdt=-1 serial=3 debug=0x2014e'),
-                           ('iBEC', 'iBoot.osb.raw', '-v serial=3 debug=0x2014e launchd_unsecure_cache=1 wdt=-1')):
+    images = [('iBSS', 'iBoot.min.raw', 'rd=md0 -v wdt=-1 serial=3 debug=0x2014e'),
+              ('iBEC', 'iBoot.osb.raw', '-v serial=3 debug=0x2014e launchd_unsecure_cache=1 wdt=-1')]
+    if native_setup_ibec:
+        images.append(('iBEC', 'iBoot.setup.ibec.raw', 'rd=md0 -v wdt=-1 serial=3 debug=0x2014e'))
+    for key, out, args in images:
         if os.path.exists(ws.p('out', out)):
             continue
         p = IM4P(open(ws.p('build/ipsw', ident['Manifest'][key]['Info']['Path']), 'rb').read())
@@ -469,9 +472,9 @@ def prepare_iboot(ws):
         run(sys.executable, os.path.join(LIB, 'patch_iboot.py'), '--no-fsboot', f'--boot-args={args}', raw,
             ws.p('out', out), capture=True)
 
-def build_setup_chain(ws, mode):
+def build_setup_chain(ws, mode, native_setup_ibec=False):
     ws.py('mk_setuprd.py', mode, capture=True)
-    ws.py('mk_chain.py', mode, capture=True)
+    ws.py('mk_chain.py', mode, *(['--native-ibec'] if native_setup_ibec else []), capture=True)
     ws.py('mk_kernel.py', capture=True)     # after mk_chain: replaces its stock kernel/TXM with the patched ones
 
 def cmd_usb_probe(a):
@@ -504,7 +507,7 @@ def cmd_usb_probe(a):
     ipsw = find_ipsw(prof, a.ipsw or (sel.get('ipsw') if sel.get('build') == build else None))
     extract_ipsw(ws, ipsw)
     prepare_tickets(ws)
-    prepare_iboot(ws)
+    prepare_iboot(ws, native_setup_ibec=a.variant == 'native-ibec')
     # Confirm the exact patched iBoot has the ramdisk boot argument before any
     # new test. This checks the artifact, not whether iBoot eventually uses it.
     with open(ws.p('out/iBoot.min.raw'), 'rb') as f:
@@ -516,9 +519,12 @@ def cmd_usb_probe(a):
         say("building the read-only probe with a minimal peripheral-firmware boot plan ...")
     elif a.variant == 'bootargs':
         say("building the read-only probe with explicit VOLATILE iBEC rd=md0 boot arguments ...")
+    elif a.variant == 'native-ibec':
+        say("building the read-only probe from the actual, separately patched iBEC and volatile rd=md0 args ...")
     else:
         say("building a standalone read-only probe ramdisk (no DataB setup code included) ...")
-    build_setup_chain(ws, 'stock' if a.variant == 'stock' else 'probe')
+    build_setup_chain(ws, 'stock' if a.variant == 'stock' else 'probe',
+                      native_setup_ibec=a.variant == 'native-ibec')
     if not a.boot:
         say("Probe prepared on the Mac. No boot files were sent to the phone.")
         say("After making a backup, run the same command with --boot to test the USB return path.")
@@ -527,7 +533,7 @@ def cmd_usb_probe(a):
          "The probe itself performs NO filesystem operations, but untested boot-chain changes may still fail. "
          "Have an encrypted backup and recovery plan.")
     args = (['--probe-minimal-fw'] if a.variant == 'minimal' else
-            ['--probe-explicit-bootargs'] if a.variant == 'bootargs' else [])
+            ['--probe-explicit-bootargs'] if a.variant in ('bootargs', 'native-ibec') else [])
     r = run(sys.executable, os.path.join(LIB, 'boot_chain.py'), *args, env=ws.env(), check=False)
     if r.returncode:
         die("read-only probe chain failed. Do not run the installer. Restart normally if necessary.")
@@ -823,10 +829,11 @@ def main():
     s.add_argument('--skip-precheck', action='store_true')
     s = sub.add_parser('probe-usb', help='prepare read-only restore-USB handshake (never creates DataB)')
     s.add_argument('--ipsw'); s.add_argument('--build')
-    s.add_argument('--variant', choices=('probe', 'stock', 'minimal', 'bootargs'), default='probe',
+    s.add_argument('--variant', choices=('probe', 'stock', 'minimal', 'bootargs', 'native-ibec'), default='probe',
                    help='probe: current listener; stock: unmodified Apple restore ramdisk; '
                         'minimal: listener with only core firmware; '
-                        'bootargs: listener with explicit volatile rd=md0 (all are non-installing)')
+                        'bootargs: listener with explicit volatile rd=md0; '
+                        'native-ibec: use patched actual iBEC plus volatile rd=md0 (all non-installing)')
     s.add_argument('--boot', action='store_true', help='explicitly boot the read-only probe; BACKUP FIRST')
     s = sub.add_parser('remove', help='delete DataB + Preboot files'); s.add_argument('--ipsw')
     s = sub.add_parser('provision', help='(re)apply userland fixes over SSH'); s.add_argument('--ecid')

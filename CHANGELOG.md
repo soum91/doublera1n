@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added a host-side `native-ibec` diagnostic variant that separately patches the firmware's **actual** iBEC executable instead of silently substituting patched iBSS bytes. It fails before physical boot if they are identical, so the user does not repeat a redundant experiment. Existing installation boot-chain behavior is unchanged.
+- Documented two physical failures of the volatile-bootargs variant on d431ap/24A446: iBEC accepted `setenv`, but no custom listener was reachable after `bootx`. This rules out command rejection, not a kernel panic or ramdisk launch issue.
 - Added a separate, opt-in USB probe variant (`--variant bootargs`) that explicitly sets **volatile** `rd=md0 -v debug=0x2014e` on the patched iBEC immediately before `bootx`, detecting a rejected command instead of treating it as a successful kernel boot. The installation and existing boot variants remain unchanged.
 - Recorded the iPhone 11 Pro Max 27.0.1 physical results honestly: the stock control rebooted to stock iOS, and the minimal-firmware probe still did not return a listener. Neither observation verifies a restore ramdisk boot or jailbreak.
 

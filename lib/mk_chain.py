@@ -11,7 +11,8 @@ sys.path.insert(0, HERE)
 import osbcfg
 IPSW = osbcfg.IPSW
 OUT = osbcfg.work('chain')
-MIN_IBOOT = osbcfg.out('iBoot.min.raw')   # patch_iboot.py --no-fsboot "--boot-args=rd=md0 -v wdt=-1 serial=3 debug=0x2014e"
+MIN_IBOOT = osbcfg.out('iBoot.min.raw')   # patched iBSS, used as iBEC in the original flow
+NATIVE_IBEC = '--native-ibec' in sys.argv
 TICKET = IM4M(open(osbcfg.out('apticket.im4m'), 'rb').read())
 MODE = (sys.argv[1] if len(sys.argv) > 1 else 'install')   # setup ramdisk variant (mk_setuprd.py)
 
@@ -27,11 +28,17 @@ def main():
         p = IM4P(open(os.path.join(IPSW, src), 'rb').read())
         if fourcc: p.fourcc = fourcc
         sign(p, out)
-    # iBEC = Apple's iBEC im4p (LZFSE, description kept) with the payload swapped for the minimal patched
-    # iBoot (validate + boot-args only, no hooks), repacked as an im4p. That iBoot is built from iBSS,
-    # whose payload is identical to iBEC's (verified on 27.2 / 24B119).
+    # The original boot chain embeds patched iBSS bytes inside the iBEC IM4P.
+    # Equivalence was verified on another build, but not on d431ap/24A446.
+    # The opt-in diagnostic patches the *actual* iBEC executable instead.
     ibec = IM4P(open(osbcfg.ipsw('iBEC'), 'rb').read())
-    ibec.payload = IM4PData(open(MIN_IBOOT, 'rb').read())
+    actual_ibec = osbcfg.out('iBoot.setup.ibec.raw') if NATIVE_IBEC else MIN_IBOOT
+    ibec_bytes = open(actual_ibec, 'rb').read()
+    if NATIVE_IBEC and ibec_bytes == open(MIN_IBOOT, 'rb').read():
+        sys.exit('!! native iBEC and patched iBSS are identical: no distinct boot experiment; STOP before boot')
+    if NATIVE_IBEC:
+        print('  native iBEC diagnostic: using separately patched iBEC image (NOT the patched iBSS bytes)')
+    ibec.payload = IM4PData(ibec_bytes)
     ibec.payload.compress(Compression.LZFSE)
     sign(ibec, 'iBEC.img4')
     # DeviceTree without /defaults/content-protect (restore DeviceTree edits), fourcc rdtr

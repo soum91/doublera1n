@@ -40,6 +40,19 @@ class RestoreUsbProbeTests(unittest.TestCase):
         self.assertIn('--variant', proc.stdout)
         self.assertIn('read-only', proc.stdout.lower())
 
+    def test_native_ibec_diagnostic_is_opt_in_and_refuses_redundant_boot(self):
+        cli = subprocess.run([sys.executable, str(ROOT / 'dualboot.py'), 'probe-usb', '--help'],
+                             capture_output=True, text=True)
+        self.assertEqual(cli.returncode, 0, cli.stderr)
+        self.assertIn('native-ibec', cli.stdout)
+        builder = (ROOT / 'dualboot.py').read_text()
+        chain = (ROOT / 'lib/mk_chain.py').read_text()
+        self.assertIn("native_setup_ibec=a.variant == 'native-ibec'", builder)
+        self.assertIn("images.append(('iBEC', 'iBoot.setup.ibec.raw'", builder)
+        self.assertIn("NATIVE_IBEC = '--native-ibec' in sys.argv", chain)
+        self.assertIn("if NATIVE_IBEC and ibec_bytes == open(MIN_IBOOT, 'rb').read():", chain)
+        self.assertIn('no distinct boot experiment; STOP before boot', chain)
+
     def test_stock_usb_observer_does_not_count_recovery_as_ramdisk(self):
         output = io.StringIO()
         with (mock.patch.object(client, 'apple_usb_pids', side_effect=[(0x1281,), (0x12a8,)]),
