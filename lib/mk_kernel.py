@@ -12,6 +12,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 JB = os.path.dirname(HERE)
 sys.path.insert(0, JB); sys.path.insert(0, HERE)
 import kpf, osbcfg
+from probe_patch_plan import PROBE_VARIANTS, select_kernel_records
 
 IPSW = osbcfg.IPSW
 OUT = osbcfg.work('chain')
@@ -25,12 +26,28 @@ IMAGES = [  # (ipsw im4p, output, fourcc or None, record files)
 ]
 
 def main():
+    argv = sys.argv[1:]
+    if len(argv) > 1 or (argv and argv[0] not in ('--probe-' + v for v in PROBE_VARIANTS)):
+        raise SystemExit('usage: mk_kernel.py [--probe-stock-kernel|--probe-lean-kernel]')
+    variant = argv[0].removeprefix('--probe-') if argv else 'full'
+    # The probe driver, not the installer, must explicitly authorize this plan.
+    if variant != 'full' and os.environ.get('DOUBLERA1N_READ_ONLY_PROBE') != '1':
+        raise SystemExit('experimental kernel plans are restricted to read-only probes')
     os.makedirs(OUT, exist_ok=True)
     for src, out, fourcc, jsons in IMAGES:
+        if out == 'Kernelcache.img4' and variant == 'stock-kernel':
+            # mk_chain.py has already signed the *original* IPSW kernel into
+            # Kernelcache.img4. Leave that output untouched; TXM stays patched.
+            if not os.path.isfile(os.path.join(OUT, out)):
+                raise SystemExit('stock kernel missing from mk_chain; refusing to build')
+            print('Kernelcache.img4: unchanged stock kernel from mk_chain; patched TXM retained')
+            continue
         p = IM4P(open(os.path.join(IPSW, src), 'rb').read())
         p.payload.decompress()
         raw = bytearray(p.payload.output().data)
         recs = kpf.load_records(jsons, exclude_prefixes=("kernel.identity",))
+        if out == 'Kernelcache.img4':
+            recs = select_kernel_records(recs, variant)
         words = kpf.records_to_words(bytes(raw), recs)
         for off, o, n in words:
             assert struct.unpack_from('<I', raw, off)[0] == o

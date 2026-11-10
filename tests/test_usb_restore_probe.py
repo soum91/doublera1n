@@ -1,6 +1,7 @@
 """Offline checks for the isolated no-UART USB transport experiment."""
 import importlib.util
 import io
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -17,8 +18,69 @@ spec = importlib.util.spec_from_file_location('usb_probe_client', ROOT / 'script
 client = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(client)
 
+plan_spec = importlib.util.spec_from_file_location('probe_patch_plan', ROOT / 'lib/probe_patch_plan.py')
+plan = importlib.util.module_from_spec(plan_spec)
+plan_spec.loader.exec_module(plan)
+
+driver_spec = importlib.util.spec_from_file_location('dualboot_test', ROOT / 'dualboot.py')
+driver = importlib.util.module_from_spec(driver_spec)
+driver_spec.loader.exec_module(driver)
+
 
 class RestoreUsbProbeTests(unittest.TestCase):
+    def test_kernel_probe_variants_limit_changes_to_known_amfi_records(self):
+        records = [
+            {'id': 'kernel.panic.seal-broken'},
+            {'id': 'kernel.amfi.trust-cache.0'},
+            {'id': 'kernel.amfi.launch-constraints.return'},
+            {'id': 'kernel.amfi.dyld-policy.1'},
+        ]
+        self.assertEqual(plan.select_kernel_records(records, 'full'), records)
+        self.assertEqual(plan.select_kernel_records(records, 'stock-kernel'), [])
+        self.assertEqual(
+            [r['id'] for r in plan.select_kernel_records(records, 'lean-kernel')],
+            ['kernel.amfi.trust-cache.0', 'kernel.amfi.launch-constraints.return'])
+        with self.assertRaises(ValueError):
+            plan.select_kernel_records(records, 'unknown')
+        with self.assertRaises(ValueError):
+            plan.select_kernel_records([{'id': 'kernel.panic.seal-broken'}], 'lean-kernel')
+
+        real_records = json.loads((ROOT / 'profiles/d431ap-24A446/kernel-restore-nodebugger.json').read_text())
+        real_records = [r for r in real_records if not r['id'].startswith('kernel.identity')]
+        self.assertEqual(len(plan.select_kernel_records(real_records, 'lean-kernel')), 7)
+
+    def test_experimental_kernel_builder_is_isolated_from_installer(self):
+        ws = mock.Mock()
+        ws.env.return_value = {'DOUBLERA1N_READ_ONLY_PROBE': '1'}
+        with mock.patch.object(driver, 'run') as subprocess_call:
+            driver.build_setup_chain(ws, 'probe', kernel_variant='lean-kernel')
+        self.assertEqual(ws.py.call_count, 2)
+        self.assertEqual(ws.py.call_args_list[0].args[:2], ('mk_setuprd.py', 'probe'))
+        self.assertEqual(ws.py.call_args_list[1].args[:2], ('mk_chain.py', 'probe'))
+        self.assertEqual(subprocess_call.call_args.args[-1], '--probe-lean-kernel')
+        self.assertEqual(subprocess_call.call_args.kwargs['env']['DOUBLERA1N_READ_ONLY_PROBE'], '1')
+        ws.reset_mock()
+        with mock.patch.object(driver, 'run') as subprocess_call:
+            driver.build_setup_chain(ws, 'install')
+        subprocess_call.assert_not_called()
+        self.assertEqual(ws.py.call_args_list[-1].args[0], 'mk_kernel.py')
+        with self.assertRaises(SystemExit):
+            driver.build_setup_chain(ws, 'install', kernel_variant='lean-kernel')
+
+    def test_kernel_experiments_are_opt_in_and_install_path_is_unchanged(self):
+        proc = subprocess.run([sys.executable, str(ROOT / 'dualboot.py'), 'probe-usb', '--help'],
+                              capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn('stock-kernel', proc.stdout)
+        self.assertIn('lean-kernel', proc.stdout)
+        source = (ROOT / 'dualboot.py').read_text()
+        builder = (ROOT / 'lib/mk_kernel.py').read_text()
+        self.assertIn("mode != 'probe'", source)
+        self.assertIn("env=ws.env(DOUBLERA1N_READ_ONLY_PROBE='1')", source)
+        self.assertIn('DOUBLERA1N_READ_ONLY_PROBE', builder)
+        self.assertIn("variant == 'stock-kernel'", builder)
+        self.assertIn('patched TXM retained', builder)
+
     def test_banner_protocol(self):
         good = b'DOUBLERA1N_USB_PROBE_V1\nread_only=yes\napfs_writes=no\n'
         self.assertTrue(client.valid_banner(good))

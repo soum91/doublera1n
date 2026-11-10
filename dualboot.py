@@ -472,10 +472,17 @@ def prepare_iboot(ws, native_setup_ibec=False):
         run(sys.executable, os.path.join(LIB, 'patch_iboot.py'), '--no-fsboot', f'--boot-args={args}', raw,
             ws.p('out', out), capture=True)
 
-def build_setup_chain(ws, mode, native_setup_ibec=False):
+def build_setup_chain(ws, mode, native_setup_ibec=False, kernel_variant='full'):
+    if kernel_variant != 'full' and (mode != 'probe' or kernel_variant not in ('stock-kernel', 'lean-kernel')):
+        die('experimental kernel patches are only permitted in the read-only probe chain')
     ws.py('mk_setuprd.py', mode, capture=True)
     ws.py('mk_chain.py', mode, *(['--native-ibec'] if native_setup_ibec else []), capture=True)
-    ws.py('mk_kernel.py', capture=True)     # after mk_chain: replaces its stock kernel/TXM with the patched ones
+    kernel_args = ['--probe-' + kernel_variant] if kernel_variant != 'full' else []
+    if kernel_args:
+        run(sys.executable, os.path.join(LIB, 'mk_kernel.py'), *kernel_args,
+            capture=True, env=ws.env(DOUBLERA1N_READ_ONLY_PROBE='1'))
+    else:
+        ws.py('mk_kernel.py', capture=True)
 
 def cmd_usb_probe(a):
     """Opt-in, non-installing restore-USB experiments; never runs rdsetup."""
@@ -521,10 +528,15 @@ def cmd_usb_probe(a):
         say("building the read-only probe with explicit VOLATILE iBEC rd=md0 boot arguments ...")
     elif a.variant == 'native-ibec':
         say("building the read-only probe from the actual, separately patched iBEC and volatile rd=md0 args ...")
+    elif a.variant == 'stock-kernel':
+        say('building a read-only probe with the untouched Apple kernel and existing patched TXM ...')
+    elif a.variant == 'lean-kernel':
+        say('building a read-only probe with ONLY AMFI trust-cache / launch-constraint kernel patches ...')
     else:
         say("building a standalone read-only probe ramdisk (no DataB setup code included) ...")
     build_setup_chain(ws, 'stock' if a.variant == 'stock' else 'probe',
-                      native_setup_ibec=a.variant == 'native-ibec')
+                      native_setup_ibec=a.variant == 'native-ibec',
+                      kernel_variant=a.variant if a.variant in ('stock-kernel', 'lean-kernel') else 'full')
     if not a.boot:
         say("Probe prepared on the Mac. No boot files were sent to the phone.")
         say("After making a backup, run the same command with --boot to test the USB return path.")
@@ -533,7 +545,7 @@ def cmd_usb_probe(a):
          "The probe itself performs NO filesystem operations, but untested boot-chain changes may still fail. "
          "Have an encrypted backup and recovery plan.")
     args = (['--probe-minimal-fw'] if a.variant == 'minimal' else
-            ['--probe-explicit-bootargs'] if a.variant in ('bootargs', 'native-ibec') else [])
+            ['--probe-explicit-bootargs'] if a.variant in ('bootargs', 'native-ibec', 'stock-kernel', 'lean-kernel') else [])
     r = run(sys.executable, os.path.join(LIB, 'boot_chain.py'), *args, env=ws.env(), check=False)
     if r.returncode:
         die("read-only probe chain failed. Do not run the installer. Restart normally if necessary.")
@@ -829,11 +841,15 @@ def main():
     s.add_argument('--skip-precheck', action='store_true')
     s = sub.add_parser('probe-usb', help='prepare read-only restore-USB handshake (never creates DataB)')
     s.add_argument('--ipsw'); s.add_argument('--build')
-    s.add_argument('--variant', choices=('probe', 'stock', 'minimal', 'bootargs', 'native-ibec'), default='probe',
+    s.add_argument('--variant', choices=('probe', 'stock', 'minimal', 'bootargs', 'native-ibec',
+                                         'stock-kernel', 'lean-kernel'), default='probe',
                    help='probe: current listener; stock: unmodified Apple restore ramdisk; '
                         'minimal: listener with only core firmware; '
                         'bootargs: listener with explicit volatile rd=md0; '
-                        'native-ibec: use patched actual iBEC plus volatile rd=md0 (all non-installing)')
+                        'native-ibec: use patched actual iBEC; '
+                        'stock-kernel: Apple kernel plus patched TXM; '
+                        'lean-kernel: AMFI-only kernel plan plus patched TXM '
+                        '(all non-installing, with volatile rd=md0)')
     s.add_argument('--boot', action='store_true', help='explicitly boot the read-only probe; BACKUP FIRST')
     s = sub.add_parser('remove', help='delete DataB + Preboot files'); s.add_argument('--ipsw')
     s = sub.add_parser('provision', help='(re)apply userland fixes over SSH'); s.add_argument('--ecid')
