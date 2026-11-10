@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added `scripts/boot_failure_triage.py` for a new diagnostic path after repeated black-screen boots. It copies existing iPhone crash reports with libimobiledevice's `--keep` option (never removes them), or analyzes manually exported reports completely offline. Its output gives report timestamps and likely SEP, TXM/SPTM, trust-cache, APFS, or display clue families without printing sensitive report contents. It explicitly warns that early failures may leave no panic file. No firmware, ramdisk, DFU, installer, or boot-chain behavior changes.
+- Recorded the d431ap/24A446 native-iBEC host result: its patched bytes matched patched iBSS, so the experiment stopped before boot. No physical iBEC variant is needed for this finding.
 - Added a host-side `native-ibec` diagnostic variant that separately patches the firmware's **actual** iBEC executable instead of silently substituting patched iBSS bytes. It fails before physical boot if they are identical, so the user does not repeat a redundant experiment. Existing installation boot-chain behavior is unchanged.
 - Documented two physical failures of the volatile-bootargs variant on d431ap/24A446: iBEC accepted `setenv`, but no custom listener was reachable after `bootx`. This rules out command rejection, not a kernel panic or ramdisk launch issue.
 - Added a separate, opt-in USB probe variant (`--variant bootargs`) that explicitly sets **volatile** `rd=md0 -v debug=0x2014e` on the patched iBEC immediately before `bootx`, detecting a rejected command instead of treating it as a successful kernel boot. The installation and existing boot variants remain unchanged.
