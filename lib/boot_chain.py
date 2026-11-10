@@ -3,8 +3,9 @@
 usbliter8ctl boot iBSS.raw -> iBEC.img4 + go -> firmware... -> ramdisk -> devicetree -> rsepfirmware
 -> kernel -> bootx.  Unlike `irecovery -c`, every command is sent with a control transfer whose STALL
 (= iBoot rejected the command) is detected; the chain stops before bootx on any failure."""
-import os, subprocess, sys, time
+import os, re, subprocess, sys, time
 import usb.core
+import usb.util
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 JB = os.path.dirname(HERE)
@@ -19,26 +20,62 @@ FIRMWARE = [('ANE.img4', 0), ('AOP.img4', 0), ('AVE.img4', 1), ('SPTM.img4', 3),
             ('GFX.img4', 0), ('ISP.img4', 1), ('PMP.img4', 0), ('StaticTrustCache.img4', 0),
             ('RestoreTrustCache.img4', 0), ('SIO.img4', 0), ('WCH.img4', 0)]
 OPTIONAL = {'WCH.img4'}             # wireless-charging firmware: iPads have none
+RECOVERY_PIDS = (0x1280, 0x1281, 0x1282, 0x1283)  # libirecovery's Recovery A/B/C/D
 if OSB: FIRMWARE = [f for f in FIRMWARE if f[0] != 'StaticTrustCache.img4']   # System TC sent as rtsc (mk_osb.py)
 
-def recovery(timeout=40):
+def recovery_devices():
+    """Enumerate all documented Apple Recovery USB IDs, not just 0x1281."""
+    for pid in RECOVERY_PIDS:
+        d = usb.core.find(idVendor=0x05ac, idProduct=pid)
+        if d is not None:
+            yield d
+
+def device_diagnostics():
+    """Read-only mode details; never send another image on an ambiguous USB state."""
+    try:
+        devices = usb.core.find(find_all=True, idVendor=0x05ac)
+        for d in devices:
+            if d.idProduct not in (0x1227, *RECOVERY_PIDS):
+                continue
+            try:
+                serial = d.serial_number or ''
+                cpid = re.search(r'CPID:([0-9A-Fa-f]+)', serial)
+                print(f"   Apple USB PID=0x{d.idProduct:04x} CPID={cpid.group(1) if cpid else 'unavailable'}", flush=True)
+            except (ValueError, usb.core.USBError) as e:
+                print(f"   Apple USB PID=0x{d.idProduct:04x} (serial unavailable: {e})", flush=True)
+            finally:
+                usb.util.dispose_resources(d)
+    except (ValueError, usb.core.USBError) as e:
+        print(f"   USB enumeration error: {e}", flush=True)
+    try:
+        q = subprocess.run(['irecovery', '-q'], capture_output=True, text=True, timeout=10)
+        interesting = ('MODE:', 'CPID:', 'PRODUCT:', 'MODEL:', 'PWND:')
+        details = [line.strip() for line in q.stdout.splitlines() if line.strip().startswith(interesting)]
+        print(f"   irecovery -q exit={q.returncode}: {', '.join(details) or (q.stderr.strip()[-250:] or 'no mode details')}", flush=True)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        print(f"   irecovery -q unavailable: {e}", flush=True)
+
+def recovery(timeout=90):
     """a Recovery device whose string descriptors answer (a half-torn-down one after `go` does not)"""
     end = time.time() + timeout
     while time.time() < end:
-        d = usb.core.find(idVendor=0x05ac, idProduct=0x1281)
-        if d:
+        for d in recovery_devices():
             try:
                 if 'CPID:8030' in (d.serial_number or ''): return d
             except (ValueError, usb.core.USBError):
                 pass
             usb.util.dispose_resources(d)
         time.sleep(0.5)
+    print(f"!! no (healthy) Recovery device after {timeout}s; current USB state:", flush=True)
+    device_diagnostics()
     sys.exit("!! no (healthy) Recovery device")
 
 def gone(timeout=15):
     end = time.time() + timeout
     while time.time() < end:
-        if not usb.core.find(idVendor=0x05ac, idProduct=0x1281): return True
+        detected = list(recovery_devices())
+        for d in detected: usb.util.dispose_resources(d)
+        if not detected: return True
         time.sleep(0.3)
     return False
 
@@ -75,8 +112,18 @@ def main():
         return stages_from_firmware()
     if 'PWND: usbliter8' not in out: sys.exit("device not in pwned DFU")
     print("[1] iBSS (raw)", flush=True)
-    subprocess.run(['python3', CTL, 'boot', os.path.join(C, 'iBSS.raw')], capture_output=True)
-    recovery(); time.sleep(3)
+    # Use the same venv as dualboot.py: the Mac's global `python3` may lack PyUSB.
+    # Never suppress the sender's failure then misreport it as a Recovery timeout.
+    ibss = subprocess.run([sys.executable, CTL, 'boot', os.path.join(C, 'iBSS.raw')],
+                          capture_output=True, text=True)
+    if ibss.returncode:
+        print(f"!! iBSS sender exited {ibss.returncode}", flush=True)
+        for stream in (ibss.stdout, ibss.stderr):
+            if stream.strip(): print(stream.strip()[-2500:], flush=True)
+        device_diagnostics()
+        sys.exit("!! iBSS send failed; stopping before iBEC or any filesystem operations")
+    print(f"   iBSS sender exited 0; {ibss.stdout.strip()[-120:] or 'no sender output'}", flush=True)
+    usb.util.dispose_resources(recovery()); time.sleep(3)
     print("[2] iBEC + go", flush=True)
     upload('iBEC.img4')
     # `irecovery -c go` (libirecovery ignores the status-stage timeout of the
@@ -115,8 +162,7 @@ def stages_from_firmware():
     usb.util.dispose_resources(recovery(10))
     subprocess.run(['irecovery', '-c', 'bootx'], capture_output=True, text=True)
     time.sleep(10)
-    d = usb.core.find(idVendor=0x05ac, idProduct=0x1281)
-    if d:
+    for d in recovery_devices():
         try:
             back = 'CPID:8030' in (d.serial_number or '')
         except (ValueError, usb.core.USBError):

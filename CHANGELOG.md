@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fixed an early iBSS handoff diagnostic failure on Macs: `boot_chain.py` now uses the caller's virtual-environment Python for the `usbliter8ctl` sender, stops and prints its actual error if the send fails, and reports detected USB mode after Recovery timeout. Recovery A/B/C/D USB product IDs are recognized. This is not evidence of a successful physical boot or a completed jailbreak.
 - Added an opt-in, read-only USB restore-ramdisk transport experiment for Macs whose pwnDFU boards expose no UART/CDC serial device. Its standalone ramdisk listener and host `iproxy` client test only a diagnostic handshake; no APFS volume setup or ticket extraction runs.
 - Added a manual macOS workflow to build and sign the standalone diagnostic binary. Actual iPhone 11 Pro Max boot and USB return transport remain untested; the normal installer still requires UART.
 - Included the workflow-built, signed diagnostic binary under `payload/setup/rdprobe`, eliminating manual artifact copying on Macs running the experiment.
