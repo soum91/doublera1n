@@ -1,6 +1,8 @@
 """Offline regressions for the first physical iBSS handoff."""
 import importlib.util
+import io
 from pathlib import Path
+from contextlib import redirect_stdout
 import subprocess
 import sys
 import types
@@ -51,6 +53,31 @@ class BootChainDiagnosticsTests(unittest.TestCase):
         chain.usb.core.find.side_effect = lambda **kw: healthy if kw.get('idProduct') == 0x1282 else None
         self.assertIs(chain.recovery(timeout=1), healthy)
         self.assertEqual(chain.RECOVERY_PIDS, (0x1280, 0x1281, 0x1282, 0x1283))
+
+    def test_raw_apple_usb_snapshot_includes_non_recovery_pid(self):
+        chain = load_boot_chain()
+        devices = [types.SimpleNamespace(idProduct=0x12a8),
+                   types.SimpleNamespace(idProduct=0x1281)]
+        chain.usb.core.find.return_value = devices
+        self.assertEqual(chain.apple_usb_pids(), (0x1281, 0x12a8))
+
+    def test_bootx_exit_and_usb_handoff_are_observed_not_claimed(self):
+        chain = load_boot_chain()
+        chain.FIRMWARE = []
+        chain.send = mock.Mock()
+        chain.upload = mock.Mock()
+        chain.recovery = mock.Mock(return_value=object())
+        chain.recovery_devices = mock.Mock(return_value=iter(()))
+        chain.observe_boot_usb = mock.Mock()
+        output = io.StringIO()
+        reply = subprocess.CompletedProcess([], 1, stdout='', stderr='USB disconnected')
+        with (mock.patch.object(chain.subprocess, 'run', return_value=reply) as run,
+              redirect_stdout(output)):
+            chain.stages_from_firmware()
+        self.assertEqual(run.call_args.args[0], ['irecovery', '-c', 'bootx'])
+        chain.observe_boot_usb.assert_called_once()
+        self.assertIn('bootx command exit=1', output.getvalue())
+        self.assertIn('kernel and ramdisk startup NOT verified', output.getvalue())
 
 
 if __name__ == '__main__':

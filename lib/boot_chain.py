@@ -79,6 +79,29 @@ def gone(timeout=15):
         time.sleep(0.3)
     return False
 
+def apple_usb_pids():
+    """Read-only USB enumeration, including normal/restore device IDs."""
+    try:
+        devices = usb.core.find(find_all=True, idVendor=0x05ac)
+        result = sorted({d.idProduct for d in devices})
+        return tuple(result)
+    except (ValueError, usb.core.USBError):
+        return None
+
+def observe_boot_usb(seconds=12, interval=0.5):
+    """Record re-enumeration after bootx without assuming a kernel ever started."""
+    end = time.monotonic() + seconds
+    last = object()
+    while time.monotonic() < end:
+        pids = apple_usb_pids()
+        if pids != last:
+            detail = ('enumeration unavailable' if pids is None else
+                      ', '.join(f'0x{pid:04x}' for pid in pids) if pids else 'no Apple USB device')
+            print(f"   post-bootx USB: {detail}", flush=True)
+            last = pids
+        time.sleep(interval)
+    return last
+
 def upload(name):
     for attempt in range(4):              # libirecovery sometimes can't open the device right after a command
         r = subprocess.run(['irecovery', '-f', os.path.join(C, name)], capture_output=True, text=True)
@@ -160,8 +183,13 @@ def stages_from_firmware():
     print(" - Kernelcache.img4", flush=True); upload('Kernelcache.img4')
     print("[6] bootx", flush=True)
     usb.util.dispose_resources(recovery(10))
-    subprocess.run(['irecovery', '-c', 'bootx'], capture_output=True, text=True)
-    time.sleep(10)
+    result = subprocess.run(['irecovery', '-c', 'bootx'], capture_output=True, text=True)
+    # Some successful USB handoffs disconnect before the CLI can read a reply;
+    # report the exit code but do not equate it with boot success/failure.
+    print(f"   bootx command exit={result.returncode}; "
+          f"stdout={result.stdout.strip()[-300:] or '(empty)'}; "
+          f"stderr={result.stderr.strip()[-300:] or '(empty)'}", flush=True)
+    observe_boot_usb()
     for d in recovery_devices():
         try:
             back = 'CPID:8030' in (d.serial_number or '')
@@ -169,7 +197,8 @@ def stages_from_firmware():
             back = False
         usb.util.dispose_resources(d)
         if back: sys.exit("!! bootx returned to the Recovery prompt - iBoot rejected the boot (see UART hash lines)")
-    print("[+] chain sent - " + ("2nd Data booting, watch UART" if OSB else "watch [rdsetup] lines on screen / UART"), flush=True)
+    print("[+] bootx command issued; kernel and ramdisk startup NOT verified - " +
+          ("watch UART for 2nd Data boot" if OSB else "test the read-only USB listener / watch UART"), flush=True)
 
 if __name__ == '__main__':
     main()

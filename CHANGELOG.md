@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added read-only post-`bootx` diagnostics after the first physical iPhone 11 Pro Max trial reached `bootx` but produced a black screen and no USB probe response: the boot chain now reports the actual `irecovery -c bootx` exit/output and observes Apple USB product-ID transitions. A command being issued is no longer presented as proof that the custom kernel/ramdisk booted.
+- The USB probe's timeout report now cross-checks raw Apple USB enumeration and `irecovery -q` status so a failed `usbmuxd`/`iproxy` handshake is distinguishable from disappearance from USB. The no-UART installer is still not implemented or validated.
 - Fixed an early iBSS handoff diagnostic failure on Macs: `boot_chain.py` now uses the caller's virtual-environment Python for the `usbliter8ctl` sender, stops and prints its actual error if the send fails, and reports detected USB mode after Recovery timeout. Recovery A/B/C/D USB product IDs are recognized. This is not evidence of a successful physical boot or a completed jailbreak.
 - Added an opt-in, read-only USB restore-ramdisk transport experiment for Macs whose pwnDFU boards expose no UART/CDC serial device. Its standalone ramdisk listener and host `iproxy` client test only a diagnostic handshake; no APFS volume setup or ticket extraction runs.
 - Added a manual macOS workflow to build and sign the standalone diagnostic binary. Actual iPhone 11 Pro Max boot and USB return transport remain untested; the normal installer still requires UART.

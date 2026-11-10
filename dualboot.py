@@ -513,7 +513,8 @@ def cmd_usb_probe(a):
     r = run(sys.executable, os.path.join(LIB, 'boot_chain.py'), env=ws.env(), check=False)
     if r.returncode:
         die("read-only probe chain failed. Do not run the installer. Restart normally if necessary.")
-    say("Probe ramdisk sent. Testing USB connection (wait up to 120 seconds) ...")
+    say("Probe boot command issued; ramdisk startup is NOT verified. "
+        "Testing USB connection (wait up to 120 seconds) ...")
     r = run(sys.executable, os.path.join(ROOT, 'scripts', 'usb_probe_client.py'),
             '--timeout', '120', check=False)
     if r.returncode:

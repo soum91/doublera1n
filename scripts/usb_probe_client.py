@@ -15,6 +15,26 @@ PORT = 27047
 BANNER = b"DOUBLERA1N_USB_PROBE_V1\n"
 
 
+def final_usb_diagnostics():
+    """Read-only cross-check when usbmuxd/iproxy cannot reach the probe."""
+    try:
+        import usb.core
+        devices = usb.core.find(find_all=True, idVendor=0x05ac)
+        pids = sorted({d.idProduct for d in devices})
+        print('Apple USB products:', ', '.join(f'0x{x:04x}' for x in pids) if pids else '(none)',
+              flush=True)
+    except Exception as exc:
+        print(f'Apple USB enumeration unavailable: {type(exc).__name__}: {exc}', flush=True)
+    try:
+        r = subprocess.run(['irecovery', '-q'], capture_output=True, text=True, timeout=10)
+        fields = ('MODE:', 'CPID:', 'PRODUCT:', 'MODEL:', 'PWND:')
+        details = [line.strip() for line in r.stdout.splitlines() if line.strip().startswith(fields)]
+        print(f"irecovery read-only status: exit={r.returncode}; "
+              f"{', '.join(details) if details else r.stderr.strip()[-200:] or '(no details)'}", flush=True)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        print(f'irecovery status unavailable: {exc}', flush=True)
+
+
 def usbmux_ids():
     r = subprocess.run(['idevice_id', '-l'], capture_output=True, text=True, check=False)
     return r.stdout.split() if r.returncode == 0 else []
@@ -87,6 +107,7 @@ def main():
         time.sleep(2)
     print('NO USB PROBE RESPONSE. This does not prove the restore USB stack is unavailable; '
           'do not attempt the real installer without a verified return transport.', file=sys.stderr)
+    final_usb_diagnostics()
     return 1
 
 
