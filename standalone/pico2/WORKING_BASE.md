@@ -8,7 +8,7 @@ From the successful installation repository, after switching to this branch, exp
 
 ```bash
 .venv/bin/python3 standalone/pico2/nand_boot.py export \
-  --work-root "$HOME/dualboot-work" \
+  --work-root "${DUALBOOT_HOME:-$PWD/dualboot-work}" \
   --profile-dir "$PWD/profiles/d431ap-24A446" \
   --output "$HOME/Desktop/PicoNAND"
 ```

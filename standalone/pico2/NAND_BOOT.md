@@ -23,7 +23,7 @@ These resolve **static research and implementation gaps**. They do not prove APF
 
 ## Private preparation on the original installation Mac
 
-Run this in the updated repository on the Mac that has the **successful installed workspace**. It automatically finds one installed d431ap/24A446 workspace under `~/dualboot-work`. `--workspace /path/to/workspace` or `--work-root /path` can select another location.
+Run this in the updated repository on the Mac that has the **successful installed workspace**. It automatically finds one installed d431ap/24A446 workspace under the repository's `dualboot-work`, honoring `DUALBOOT_HOME`. `--workspace /path/to/workspace` or `--work-root /path` can select another location.
 
 ```bash
 .venv/bin/python3 standalone/pico2/nand_boot.py export \

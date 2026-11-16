@@ -327,7 +327,7 @@ def main(argv=None):
     export = sub.add_parser('export', help='private local image preparation; no phone writes')
     export.add_argument('--workspace', type=Path)
     export.add_argument('--profile-dir', type=Path, help='original successful installation profile directory')
-    export.add_argument('--work-root', type=Path, default=Path(os.environ.get('DUALBOOT_HOME', '~/dualboot-work')).expanduser())
+    export.add_argument('--work-root', type=Path, default=Path(os.environ.get('DUALBOOT_HOME') or ROOT / 'dualboot-work').expanduser())
     export.add_argument('--stock-ibec-raw', type=Path, help='optional; normally extracted from the installed workspace firmware')
     export.add_argument('--output', type=Path, required=True)
     check = sub.add_parser('selfcheck', help='prepare in memory and report layout; no boot image saved')

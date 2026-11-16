@@ -24,6 +24,16 @@ except ImportError:
 
 
 class ConfigResolutionTests(unittest.TestCase):
+    def test_default_workspace_root_matches_successful_installer(self):
+        import boot_bundle
+        for override, expected in ((None, ROOT / 'dualboot-work'), ('/custom/work', Path('/custom/work'))):
+            env = {} if override is None else {'DUALBOOT_HOME': override}
+            with self.subTest(override=override), mock.patch.dict(boot.os.environ, env, clear=True), \
+                    mock.patch.object(boot_bundle, '_auto_workspace', return_value=Path('/fixture')) as lookup, \
+                    mock.patch.object(boot, 'export_workspace', return_value={}), mock.patch('builtins.print'):
+                self.assertEqual(boot.main(['export', '--output', '/fixture-output']), 0)
+                lookup.assert_called_once_with(expected, boot.BOARD, boot.BUILD)
+
     def fixture(self, concrete=True, value=True):
         raw = bytearray(256)
         struct.pack_into('<Q', raw, 0, 0x1000 + 128)
