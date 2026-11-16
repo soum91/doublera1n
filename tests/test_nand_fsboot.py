@@ -1,4 +1,5 @@
 """Tests run entirely on a host; no iPhone, USB or firmware writes."""
+import hashlib
 import importlib.util
 from pathlib import Path
 import subprocess
@@ -26,6 +27,9 @@ class NANDProbeTests(unittest.TestCase):
         data = bytearray(b'\0' * 2048)
         data[0x300:0x306] = b'iBoot-'
         self.raw.write_bytes(data)
+        self.hash_patch = mock.patch.object(mod, 'STOCK_SHA256', hashlib.sha256(data).hexdigest())
+        self.hash_patch.start()
+        self.addCleanup(self.hash_patch.stop)
         self.out = Path(self.tmp.name) / 'patched.raw'
 
     def tearDown(self):
@@ -88,6 +92,16 @@ class NANDProbeTests(unittest.TestCase):
         with self.assertRaisesRegex(mod.ProbeError, 'patch_iboot failed'):
             mod.prepare(self.raw, self.out, patcher=self.root/'lib/patch_iboot.py',
                         runner=self.fake_runner(returncode=1), root=self.root)
+        self.assertFalse(self.out.exists())
+
+    def test_refuses_other_build_or_prepatched_input(self):
+        data = bytearray(self.raw.read_bytes())
+        data[-1] = 1
+        self.raw.write_bytes(data)
+        runner = mock.Mock()
+        with self.assertRaisesRegex(mod.ProbeError, 'SHA256 mismatch'):
+            mod.prepare(self.raw, self.out, runner=runner, root=self.root)
+        runner.assert_not_called()
         self.assertFalse(self.out.exists())
 
     def test_refuses_existing_output(self):

@@ -25,6 +25,8 @@ PATCHER = ROOT / 'lib' / 'patch_iboot.py'
 BOARD = 'd431ap'
 BUILD = '24A446'
 DEFAULT_ARGS = '-v serial=3 debug=0x2014e'
+# Independently extracted from the d431ap/24A446 Apple IPSW; see BINARY_FINDINGS.md.
+STOCK_SHA256 = '9f8d8c31484800b5dad37dbbc4953d8b4a9c969d46e7b53f82414a607e143f48'
 REQUIRED_PATCH_LOG = (
     'memboot->fsboot',
     'remote-boot -> local',
@@ -96,6 +98,8 @@ def prepare(raw_iboot: Path, output: Path, patcher: Path = PATCHER,
         marker = f.read(0x20)
     if b'mBoot-' not in marker and b'iBoot-' not in marker:
         raise ProbeError('not raw iBoot: missing expected version marker at 0x300')
+    if sha256_file(raw_iboot) != STOCK_SHA256:
+        raise ProbeError('stock iBEC SHA256 mismatch: not verified d431ap/24A446 bytes')
     output = output.resolve()
     if output == raw_iboot.resolve():
         raise ProbeError('output cannot overwrite source iBoot')

@@ -1,0 +1,388 @@
+{
+  "board": "d431ap",
+  "build": "24A446",
+  "status": "STATIC_BINARY_EVIDENCE_ONLY",
+  "raw_sha256": "9f8d8c31484800b5dad37dbbc4953d8b4a9c969d46e7b53f82414a607e143f48",
+  "raw_bytes": 2842448,
+  "first_stage_storage": {
+    "raw_bytes": 2842448,
+    "deflate_bytes": 1808223,
+    "pico2_flash_bytes": 4194304,
+    "raw_flash_remainder_before_pico_firmware": 1351856,
+    "complete_boot_chain_measured": false,
+    "decompressor_implemented": false
+  },
+  "load_address": 6912540672,
+  "code_end_offset": 2015232,
+  "commands": {
+    "fsboot": [
+      {
+        "table_offset": 2018336,
+        "handler_offset": 2856
+      }
+    ],
+    "memboot": [
+      {
+        "table_offset": 1165696,
+        "handler_offset": 5452
+      }
+    ],
+    "ramdisk": [
+      {
+        "table_offset": 1170840,
+        "handler_offset": 20900
+      }
+    ],
+    "bootx": [
+      {
+        "table_offset": 1165576,
+        "handler_offset": 4268
+      }
+    ],
+    "go": [
+      {
+        "table_offset": 1165816,
+        "handler_offset": 7628
+      }
+    ],
+    "upgrade": [
+      {
+        "table_offset": 2018224,
+        "handler_offset": 24024
+      },
+      {
+        "table_offset": 2018392,
+        "handler_offset": 22732
+      }
+    ]
+  },
+  "observed_direct_calls": [
+    {
+      "offset": 3188,
+      "observation": "fsboot calls boot-device/partition setup",
+      "kind": "bl",
+      "target_offset": 9120
+    },
+    {
+      "offset": 9340,
+      "observation": "boot-device/partition setup calls context initializer",
+      "kind": "bl",
+      "target_offset": 9408
+    },
+    {
+      "offset": 9452,
+      "observation": "context initializer calls /boot setup candidate",
+      "kind": "bl",
+      "target_offset": 9484
+    },
+    {
+      "offset": 9616,
+      "observation": "/boot setup candidate calls VFS-like context operation",
+      "kind": "bl",
+      "target_offset": 985956
+    },
+    {
+      "offset": 3212,
+      "observation": "fsboot calls shared setup helper",
+      "kind": "bl",
+      "target_offset": 6200
+    },
+    {
+      "offset": 6772,
+      "observation": "boot-ramdisk lookup candidate",
+      "kind": "bl",
+      "target_offset": 693804
+    },
+    {
+      "offset": 6840,
+      "observation": "optional boot-ramdisk path calls shared rdsk helper",
+      "kind": "bl",
+      "target_offset": 793132
+    },
+    {
+      "offset": 25088,
+      "observation": "upgrade /boot/ramdisk path calls same rdsk helper",
+      "kind": "bl",
+      "target_offset": 793132
+    },
+    {
+      "offset": 793192,
+      "observation": "rdsk helper calls feature predicate",
+      "kind": "bl",
+      "target_offset": 793448
+    },
+    {
+      "offset": 793376,
+      "observation": "rdsk helper calls image-loader candidate",
+      "kind": "bl",
+      "target_offset": 436448
+    }
+  ],
+  "shared_setup_flag": {
+    "storage_offset_from_base": 2926720,
+    "setter_offset": 9468,
+    "clearer_offset": 9752,
+    "getter_offset": 9768,
+    "setter_condition": "one when helper 0x250c returns zero, otherwise zero",
+    "setup_inputs": [
+      "boot-device",
+      "boot-partition",
+      "/boot"
+    ],
+    "actual_volume_access_verified": false
+  },
+  "anchors": {
+    "boot-device": [
+      {
+        "string_offset": 1288369,
+        "references": [
+          {
+            "adrp_offset": 9184,
+            "add_offset": 9188,
+            "nearby_direct_branches": [
+              {
+                "offset": 9212,
+                "kind": "bl",
+                "target_offset": 693804
+              }
+            ]
+          },
+          {
+            "adrp_offset": 222104,
+            "add_offset": 222108,
+            "nearby_direct_branches": [
+              {
+                "offset": 222148,
+                "kind": "bl",
+                "target_offset": 695532
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "boot-partition": [
+      {
+        "string_offset": 1288386,
+        "references": [
+          {
+            "adrp_offset": 9248,
+            "add_offset": 9252,
+            "nearby_direct_branches": [
+              {
+                "offset": 9272,
+                "kind": "bl",
+                "target_offset": 694096
+              }
+            ]
+          },
+          {
+            "adrp_offset": 22120,
+            "add_offset": 22124,
+            "nearby_direct_branches": [
+              {
+                "offset": 22144,
+                "kind": "bl",
+                "target_offset": 22708
+              },
+              {
+                "offset": 22160,
+                "kind": "bl",
+                "target_offset": 695532
+              }
+            ]
+          },
+          {
+            "adrp_offset": 153300,
+            "add_offset": 153304,
+            "nearby_direct_branches": [
+              {
+                "offset": 153308,
+                "kind": "bl",
+                "target_offset": 159096
+              },
+              {
+                "offset": 153324,
+                "kind": "bl",
+                "target_offset": 694096
+              },
+              {
+                "offset": 153332,
+                "kind": "b",
+                "target_offset": 153340
+              },
+              {
+                "offset": 153340,
+                "kind": "bl",
+                "target_offset": 158620
+              },
+              {
+                "offset": 153344,
+                "kind": "bl",
+                "target_offset": 158224
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "boot-ramdisk": [
+      {
+        "string_offset": 1288230,
+        "references": [
+          {
+            "adrp_offset": 6744,
+            "add_offset": 6748,
+            "nearby_direct_branches": [
+              {
+                "offset": 6772,
+                "kind": "bl",
+                "target_offset": 693804
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "/boot/ramdisk": [
+      {
+        "string_offset": 1290923,
+        "references": [
+          {
+            "adrp_offset": 25064,
+            "add_offset": 25068,
+            "nearby_direct_branches": [
+              {
+                "offset": 25088,
+                "kind": "bl",
+                "target_offset": 793132
+              },
+              {
+                "offset": 25100,
+                "kind": "bl",
+                "target_offset": 1086036
+              },
+              {
+                "offset": 25108,
+                "kind": "bl",
+                "target_offset": 1085948
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "/boot/kernelcache": [
+      {
+        "string_offset": 1290945,
+        "references": [
+          {
+            "adrp_offset": 25188,
+            "add_offset": 25192,
+            "nearby_direct_branches": []
+          }
+        ]
+      }
+    ],
+    "ramdisk-size": [
+      {
+        "string_offset": 1289903,
+        "references": [
+          {
+            "adrp_offset": 22356,
+            "add_offset": 22360,
+            "nearby_direct_branches": [
+              {
+                "offset": 22368,
+                "kind": "bl",
+                "target_offset": 22708
+              },
+              {
+                "offset": 22380,
+                "kind": "bl",
+                "target_offset": 696444
+              },
+              {
+                "offset": 22384,
+                "kind": "bl",
+                "target_offset": 21636
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "/System/Library/Caches/com.apple.kernelcaches/kernelcache": [
+      {
+        "string_offset": 1289924,
+        "references": [
+          {
+            "adrp_offset": 21768,
+            "add_offset": 21772,
+            "nearby_direct_branches": [
+              {
+                "offset": 21792,
+                "kind": "bl",
+                "target_offset": 22676
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "mount upgrade partition": [
+      {
+        "string_offset": 1290628,
+        "references": [
+          {
+            "adrp_offset": 23076,
+            "add_offset": 23080,
+            "nearby_direct_branches": [
+              {
+                "offset": 23088,
+                "kind": "b",
+                "target_offset": 23104
+              }
+            ]
+          },
+          {
+            "adrp_offset": 24520,
+            "add_offset": 24524,
+            "nearby_direct_branches": [
+              {
+                "offset": 24532,
+                "kind": "b",
+                "target_offset": 24576
+              },
+              {
+                "offset": 24540,
+                "kind": "b",
+                "target_offset": 24548
+              },
+              {
+                "offset": 24560,
+                "kind": "bl",
+                "target_offset": 717768
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "load upgrade iBEC": [
+      {
+        "string_offset": 1290663,
+        "references": [
+          {
+            "adrp_offset": 23092,
+            "add_offset": 23096,
+            "nearby_direct_branches": []
+          }
+        ]
+      }
+    ]
+  },
+  "nand_read_proven": false,
+  "jailbreak_boot_proven": false,
+  "interpretation": "The /boot paths occur in upgrade code. fsboot also reaches a shared helper with an optional boot-ramdisk lookup and a feature-gated rdsk loader. Static references do not establish volume access, key semantics, or jailbreak startup."
+}

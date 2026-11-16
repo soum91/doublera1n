@@ -4,6 +4,10 @@
 
 Goal: explore an RP2350-only first stage that uses *existing iPhone internal boot storage*, without an external microSD card and without reinstalling `DataB`.
 
+## Exact-image progress (2026-11-16)
+
+[BINARY_FINDINGS.md](BINARY_FINDINGS.md) now records verified d431ap/24A446 iBoot offsets, a shared optional ramdisk-loading path, unresolved gates and measured first-stage storage. The preparer is now bound to the exact stock raw SHA256; an iBoot marker alone is insufficient. See `iboot_audit.py` for reproducible analysis. These are binary findings, not an on-device boot.
+
 ## What the actual doublera1n source says
 
 - `lib/patch_iboot.py` already implements `memboot` command-table redirection to `fsboot`, `--local` (pretend NAND boot) and `--no-autoboot` (stay in console). These are **patches**, not proof that the iPhone 11 Pro Max can boot from NAND after a pwned DFU jump.

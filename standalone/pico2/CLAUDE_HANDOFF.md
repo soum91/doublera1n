@@ -5,6 +5,10 @@
 **Target:** Raspberry Pi Pico 2 (RP2350A, 4 MB onboard flash), iPhone 11 Pro Max (`iPhone12,5`, board `d431ap`), installed iOS 27.0.1 (`24A446`).
 **User goal:** Re-enter the **already installed** doublera1n second Data environment and jailbreak after a restart, with only the Pico 2, **without a PC, Mac, microSD module, or another fresh installation**.
 
+## Latest implementation update (2026-11-16)
+
+Read [BINARY_FINDINGS.md](BINARY_FINDINGS.md) and [d431ap-24A446-iboot-audit.json](d431ap-24A446-iboot-audit.json) first. Exact Apple iBoot analysis located a shared, gated optional `boot-ramdisk` path reachable from fsboot. Continue from the concrete function offsets and unresolved gates there. `iboot_audit.py --apple-download` reproduces the static report without a phone or a personalized ticket. The raw first stage fits in 4 MiB; the complete current upload chain does not. No on-device no-SD boot has been demonstrated.
+
 ## Read this first
 
 - [NAND_FSBOOT.md](NAND_FSBOOT.md): source-grounded findings on the iBoot filesystem-boot hypothesis and why it is still unverified.

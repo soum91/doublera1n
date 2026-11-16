@@ -14,3 +14,7 @@ Read `docs/diagnostics/2026-11-10-d431ap-usb-probe-handoff.md` before editing iB
 **Read [standalone/pico2/CLAUDE_HANDOFF.md](standalone/pico2/CLAUDE_HANDOFF.md) in full before writing or changing Pico/bootloader code.** This is the current implementation assignment, and the earlier 2026-11-10 USB failure handoff is historical context, not a directive to repeat those experiments.
 
 Goal: Raspberry Pi Pico 2 (RP2350A, 4 MB flash) alone should re-enter an *already-installed* second Data jailbreak on iPhone 11 Pro Max `d431ap` / iOS 27.0.1 `24A446`, without a Mac/Windows machine, microSD, or reinstallation. The no-SD path is **not yet proven feasible**. Follow the handoff's evidence-first gates, implement only verifiable primitives, and document blockers instead of pretending an `fsboot` patch or host CI proves a jailbreak boot. No automatic phone/Preboot/NVRAM changes or unverified UF2 flashing; any phone-write step requires explicit user authorization.
+
+### Exact-image continuation (2026-11-16)
+
+Start with `standalone/pico2/BINARY_FINDINGS.md`: real d431ap/24A446 iBoot analysis found the optional `boot-ramdisk` loader path and its unresolved gates. Continue tracing those exact functions; do not repeat the historical USB probe or treat the generic fsboot handoff as the latest research. No phone write or standalone boot was performed.
