@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fixed the existing manual iPhone 11 Pro Max precheck workflow being rejected at YAML validation: moved its `RUNNER_TEMP`-based workspace setup into a runner step instead of using the unavailable `runner` expression context in job-level environment evaluation. The firmware job remains manual and does not connect to a phone.
+
 - Continued the Pico 2 no-microSD investigation against the exact Apple d431ap/24A446 firmware. Added reproducible manifest/digest/hash-bound binary analysis, concrete filesystem/ramdisk loader references, storage measurements and CI JSON-only audit output. The candidate preparer now rejects other or previously patched raw iBoot images. All 61 offline tests passed and the existing kernel/TXM/DeviceTree plans were checked against the firmware. The shared ramdisk path has unresolved runtime gates and volume access; no phone writes, standalone boot or UF2 is claimed. See `standalone/pico2/BINARY_FINDINGS.md`.
 
 - Added a host-only Pico 2 internal-storage `fsboot` proof-of-concept in `standalone/pico2/nand_fsboot.py`, with source-audit preconditions, a fail-closed raw-iBEC patch preparation, nine offline tests, and documentation of why the existing installed `DataB` cannot simply replace the separate jbinit ramdisk/firmware chain. This **does not generate flashable UF2**, has never been run on an iPhone, and makes no device, NVRAM, Preboot, installer, or existing desktop boot changes. See `standalone/pico2/NAND_FSBOOT.md`.

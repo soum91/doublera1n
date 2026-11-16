@@ -19,13 +19,13 @@ jobs:
   precheck:
     runs-on: macos-15
     timeout-minutes: 90
-    env:
-      DUALBOOT_HOME: ${{ runner.temp }}/doublera1n-precheck
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Set firmware analysis workspace
+        run: echo "DUALBOOT_HOME=$RUNNER_TEMP/doublera1n-precheck" >> "$GITHUB_ENV"
       - name: Install firmware analysis tools
         run: |
           brew install blacktop/tap/ipsw
