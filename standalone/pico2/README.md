@@ -65,3 +65,7 @@ The C verifier is a host-only test utility, **not** RP2350 firmware.
 ## Safety and privacy
 
 Never distribute APTickets, device-unique jailbreak ramdisks, boot bundles or the contents of `~/dualboot-work`. Keep backup and stock-iOS recovery plan. The original doublera1n second environment is SEP-less, so standalone boot cannot restore passcode/iCloud capability. Passing a host test does not prove a jailbreak boot.
+
+## Optional no-microSD research
+
+An experimental **Pico-only internal-NAND `fsboot` path** is being investigated in [`NAND_FSBOOT.md`](NAND_FSBOOT.md), with a read-only preparer in [`nand_fsboot.py`](nand_fsboot.py). It uses the repository's existing `memboot` → `fsboot` iBoot patch to prepare an offline first-stage candidate; **no on-device filesystem loading is verified, no jailbreak ramdisk handoff exists, and it is not a standalone booter/UF2**. The already-installed `DataB` does not automatically contain the required prekernel images. Do not flash the experiment or alter Preboot/NVRAM on its basis.
