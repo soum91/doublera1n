@@ -1,0 +1,21 @@
+name: Pico 2 boot-plan offline tests
+on:
+  push:
+    paths:
+      - 'standalone/pico2/**'
+      - 'tests/test_pico2_boot_bundle.py'
+      - '.github/workflows/pico2-boot-plan-tests.yml'
+  pull_request:
+    paths:
+      - 'standalone/pico2/**'
+      - 'tests/test_pico2_boot_bundle.py'
+      - '.github/workflows/pico2-boot-plan-tests.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test Python exporter and native C verifier
+        run: python3 -m unittest discover -s tests -p 'test_pico2_boot_bundle.py' -v
+      - name: Compile C core with strict warnings
+        run: cc -std=c11 -O2 -Wall -Wextra -Werror -o /tmp/inspect_bundle standalone/pico2/inspect_bundle.c standalone/pico2/boot_plan.c

@@ -134,3 +134,7 @@ TSS: if Apple doesn't sign the build anymore (old builds, betas), the newest sig
 
 ## License
 doublera1n is MIT, see [LICENSE](LICENSE). Some parts keep their own license.
+
+## Pico 2 standalone rebooter (development only)
+
+A **Raspberry Pi Pico 2** `d431ap/24A446` second-Data **rebooter prototype** lives in [`standalone/pico2/`](standalone/pico2/README.md). It exports existing personalized boot files read-only and validates the exact ordered boot sequence. This currently **does not produce flashable UF2 firmware** or boot the phone: external microSD storage and the RP2350 Recovery-mode USB bulk sender still require integration. Do not replace the desktop `boot.sh` with it yet; do not share generated `BOOT.BIN` data.
