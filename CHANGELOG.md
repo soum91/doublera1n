@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Continued the Pico 2 no-microSD investigation against the exact Apple d431ap/24A446 firmware. Added reproducible manifest/digest/hash-bound binary analysis, concrete filesystem/ramdisk loader references, storage measurements and CI JSON-only audit output. The candidate preparer now rejects other or previously patched raw iBoot images. All 61 offline tests passed and the existing kernel/TXM/DeviceTree plans were checked against the firmware. The shared ramdisk path has unresolved runtime gates and volume access; no phone writes, standalone boot or UF2 is claimed. See `standalone/pico2/BINARY_FINDINGS.md`.
+
 - Added a host-only Pico 2 internal-storage `fsboot` proof-of-concept in `standalone/pico2/nand_fsboot.py`, with source-audit preconditions, a fail-closed raw-iBEC patch preparation, nine offline tests, and documentation of why the existing installed `DataB` cannot simply replace the separate jbinit ramdisk/firmware chain. This **does not generate flashable UF2**, has never been run on an iPhone, and makes no device, NVRAM, Preboot, installer, or existing desktop boot changes. See `standalone/pico2/NAND_FSBOOT.md`.
 
 - Added an experimental Raspberry Pi Pico 2 standalone-rebooter foundation under `standalone/pico2/` for already-installed d431ap/24A446 OS B. The read-only exporter packages the existing personalized `osbjb` boot chain for external microSD; the portable C parser and CRC preflight verify exact stage order and integrity. Nine host tests and a strict native C build pass. This is **not flashable UF2 firmware**: RP2350 SD and USB Recovery bulk-upload transport are still missing. No installer, phone filesystem, or existing desktop boot code changed.

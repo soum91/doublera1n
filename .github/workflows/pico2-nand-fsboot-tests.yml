@@ -3,14 +3,18 @@ on:
   push:
     paths:
       - 'standalone/pico2/nand_fsboot.py'
+      - 'standalone/pico2/iboot_audit.py'
       - 'standalone/pico2/NAND_FSBOOT.md'
       - 'tests/test_nand_fsboot.py'
+      - 'tests/test_iboot_audit.py'
       - '.github/workflows/pico2-nand-fsboot-tests.yml'
   pull_request:
     paths:
       - 'standalone/pico2/nand_fsboot.py'
+      - 'standalone/pico2/iboot_audit.py'
       - 'standalone/pico2/NAND_FSBOOT.md'
       - 'tests/test_nand_fsboot.py'
+      - 'tests/test_iboot_audit.py'
       - '.github/workflows/pico2-nand-fsboot-tests.yml'
 jobs:
   offline-tests:
@@ -21,4 +25,5 @@ jobs:
         with:
           python-version: '3.11'
       - run: python3 -m unittest discover -s tests -p 'test_nand_fsboot.py' -v
+      - run: python3 -m unittest discover -s tests -p 'test_iboot_audit.py' -v
       - run: python3 standalone/pico2/nand_fsboot.py audit

@@ -4,11 +4,13 @@
 
 **STATUS: IMPLEMENTATION IN PROGRESS, NOT A WORKING UF2. DO NOT FLASH THIS AS AN IPHONE BOOTER.** This directory currently implements a complete read-only boot-file exporter, portable boot-plan parser, CRC preflight, and ordered stage runner abstraction. The missing hardware pieces are an SPI microSD/FatFs reader, an Apple USB Recovery bulk image uploader, and the attachment of this runner to the upstream usbliter8 PIO-USB exploit and DFU helper. No physical boot has been demonstrated.
 
+The active **no-microSD** investigation is documented in [BINARY_FINDINGS.md](BINARY_FINDINGS.md). Exact Apple iBoot analysis has located an optional ramdisk-loading path, but its runtime gates and volume access remain unresolved. The exporter below is the separate older SD design.
+
 ## Why `boot.sh` is not just one command
 
 When the second environment is already installed, `boot.sh` calls `dualboot.py boot`, which calls `lib/boot_chain.py --osbjb`. The resulting boot chain still transmits **every boot image each time**. The correct image and command order is defined by `FULL` in `boot_bundle.py` and mirrored from `lib/boot_chain.py`: raw iBSS in pwned DFU, iBEC + `go`, all required IMG4 firmware (without `StaticTrustCache` for OS B), `RestoreTrustCache`, jailbroken 96 MB APFS ramdisk, DeviceTree, SEP, patched kernel, `bootx`. Device transition waits are also needed. It does **not** reinstall DataB.
 
-The **96 MB uncompressed ramdisk** alone makes the 4 MB onboard flash insufficient. Boot files must be stored on a *separate* microSD card. `surrealboot` and `usbliter8-standalone` implement one-image tethered boot, not this full transport. The vanilla usbliter8 PIO-USB implementation only exposes EP0 control transfers through its current `bus_control_xfer`; `irecovery -f` for IMG4 requires a separate Recovery bulk data transfer implementation. Without that, a UF2 containing only the first iBSS would strand the iPhone before the jailbreak boot.
+The existing uncompressed boot-bundle representation exceeds the 4 MB onboard flash; the current compressed stock kernel container alone measures 21,818,243 bytes. The exporter below assumes a separate microSD card. A raw 96 MiB ramdisk alone does not prove every compression or internal-storage approach impossible. The exact 2,842,448-byte first stage fits before Pico firmware; see the measured no-SD investigation linked above. `surrealboot` and `usbliter8-standalone` implement one-image tethered boot, not this full transport. The vanilla usbliter8 PIO-USB implementation only exposes EP0 control transfers through its current `bus_control_xfer`; `irecovery -f` for IMG4 requires a separate Recovery bulk data transfer implementation. Without that, a UF2 containing only the first iBSS would strand the iPhone before the jailbreak boot.
 
 ## Completed: export from the installed workspace
 
