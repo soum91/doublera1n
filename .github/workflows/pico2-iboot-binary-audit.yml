@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'standalone/pico2/iboot_audit.py'
+      - 'standalone/pico2/nand_boot.py'
       - '.github/workflows/pico2-iboot-binary-audit.yml'
 permissions:
   contents: read
@@ -19,8 +20,12 @@ jobs:
       - run: python3 -m pip install 'pyimg4==0.8.9' 'remotezip==0.12.6'
       - name: Inspect only the exact stock Apple iBEC (no ticket or phone)
         run: python3 standalone/pico2/iboot_audit.py --apple-download > iboot-audit.json
+      - name: Prepare NAND first stage in memory (no personalized assets)
+        run: python3 standalone/pico2/nand_boot.py selfcheck --apple-download > nand-candidate-selfcheck.json
       - uses: actions/upload-artifact@v4
         with:
           name: d431ap-24A446-iboot-static-analysis
-          path: iboot-audit.json
+          path: |
+            iboot-audit.json
+            nand-candidate-selfcheck.json
           if-no-files-found: error

@@ -4,7 +4,7 @@
 
 **STATUS: IMPLEMENTATION IN PROGRESS, NOT A WORKING UF2. DO NOT FLASH THIS AS AN IPHONE BOOTER.** This directory currently implements a complete read-only boot-file exporter, portable boot-plan parser, CRC preflight, and ordered stage runner abstraction. The missing hardware pieces are an SPI microSD/FatFs reader, an Apple USB Recovery bulk image uploader, and the attachment of this runner to the upstream usbliter8 PIO-USB exploit and DFU helper. No physical boot has been demonstrated.
 
-The active **no-microSD** investigation is documented in [BINARY_FINDINGS.md](BINARY_FINDINGS.md). Exact Apple iBoot analysis has located an optional ramdisk-loading path, but its runtime gates and volume access remain unresolved. The exporter below is the separate older SD design.
+The active **no-microSD** implementation is documented in [NAND_BOOT.md](NAND_BOOT.md), including private installed-workspace preparation and the implemented Pico EP0 transport. The static flag and Preboot/hash path are resolved; the full device boot remains untested. The exporter below is the separate older SD design.
 
 ## Why `boot.sh` is not just one command
 

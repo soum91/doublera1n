@@ -18,3 +18,7 @@ Goal: Raspberry Pi Pico 2 (RP2350A, 4 MB flash) alone should re-enter an *alread
 ### Exact-image continuation (2026-11-16)
 
 Start with `standalone/pico2/BINARY_FINDINGS.md`: real d431ap/24A446 iBoot analysis found the optional `boot-ramdisk` loader path and its unresolved gates. Continue tracing those exact functions; do not repeat the historical USB probe or treat the generic fsboot handoff as the latest research. No phone write or standalone boot was performed.
+
+### NAND loader implementation continuation (2026-11-16)
+
+Read `standalone/pico2/NAND_BOOT.md` before continuing. The configuration flag and Preboot/hash directory selection are statically resolved; candidate preparation, transient five-path overrides, a missing-ramdisk guard, private installed-asset export and guarded Pico EP0 transport/source wiring now exist. The original successful private workspace and a physical device trace remain necessary. Do not claim a working rebooter, flash a generic candidate, or repeat the superseded unresolved-gate investigation.

@@ -4,6 +4,10 @@
 
 Goal: explore an RP2350-only first stage that uses *existing iPhone internal boot storage*, without an external microSD card and without reinstalling `DataB`.
 
+## NAND boot implementation (2026-11-16)
+
+[NAND_BOOT.md](NAND_BOOT.md) supersedes the earlier research-only candidate below: it documents the resolved static loader flag and Preboot/hash path, a real transient-path first-stage wrapper, a ramdisk failure guard, retagged private asset preparation and EP0 Pico transport. No physical no-SD boot or UF2 is verified. The older `nand_fsboot.py` remains a stock-only probe and must not be confused with `nand_boot.py`.
+
 ## Exact-image progress (2026-11-16)
 
 [BINARY_FINDINGS.md](BINARY_FINDINGS.md) now records verified d431ap/24A446 iBoot offsets, a shared optional ramdisk-loading path, unresolved gates and measured first-stage storage. The preparer is now bound to the exact stock raw SHA256; an iBoot marker alone is insufficient. See `iboot_audit.py` for reproducible analysis. These are binary findings, not an on-device boot.
