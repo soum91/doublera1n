@@ -37,6 +37,7 @@ class PicoIntegrationTests(unittest.TestCase):
         self.assertIn('dbnand_pico_boot(IMAGE, HEADER->size, HEADER->crc32, DBNAND_EXPECTED_ECID)', source)
         self.assertFalse((self.source / 'nand_device_config.h').exists())
         self.assertIn('jailbreak startup remains unverified', (self.source / 'main.c').read_text())
+        self.assertIn('extern int device_identify(uint16_t *cpid, bool *pwnd);', (self.source / 'main.c').read_text())
         self.assertNotIn('000000000000007b', '\n'.join(p.read_text() for p in self.source.iterdir()))
         self.assertIn('DBNAND_PRIVATE_EXPORT', (self.source / 'CMakeLists.txt').read_text())
 

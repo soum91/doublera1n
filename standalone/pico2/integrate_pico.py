@@ -31,6 +31,9 @@ def integrate(source: Path, private: Path):
     if main_text.count(old_handoff) != 1 or 'if (autoboot_boot() != 0)' not in main_text:
         raise IntegrationError('unexpected standalone main handoff; refusing an unreviewed success indicator')
     main_text = main_text.replace(old_handoff, '    led_set_state(LED_STATE_IDLE);\n\n    printf("\\nNAND handoff sent; jailbreak startup remains unverified\\n");\n    spin_forever();', 1)
+    # The standalone add-on calls this public exploit.c function, but the
+    # reviewed upstream exploit.h omits its declaration. GCC 15 rejects it.
+    main_text = '#include <stdbool.h>\n#include <stdint.h>\nextern int device_identify(uint16_t *cpid, bool *pwnd);\n' + main_text
     original = source_file.read_bytes()
     if hashlib.sha256(original).hexdigest() != AUTOBOOT_SHA256:
         raise IntegrationError('unsupported or already-modified autoboot.c; use the exact standalone add-on source')
