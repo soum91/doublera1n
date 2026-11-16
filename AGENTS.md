@@ -14,3 +14,7 @@ All current and future diagnostic/log reports must provide Copy with clipboard r
 ## Public attribution and owner privacy
 
 Use `soum91` as the author, maintainer, developer, and publisher in all first-party metadata. Do not publish the owner's legal name, private email, or other personal identifiers in source, licenses, Sileo/FlareStore feeds, release assets, binary packages, generated docs, logs, or commits. Audit generated artifacts before publishing. Preserve legitimate third-party copyright notices. Existing bundle identifiers, app groups, and entitlements must not be silently changed, because doing so can break upgrades and stored data.
+
+## Active standalone Pico 2 rebooter task (2026-11-15)
+
+For any work on standalone boot, Pico 2 firmware, NAND, `fsboot`, or the jailbreak boot chain, read `standalone/pico2/CLAUDE_HANDOFF.md` and `standalone/pico2/NAND_FSBOOT.md` first. The requested target is a **Pico 2-only, no-microSD rebooter for the already installed** second Data volume on `d431ap` / `24A446`, not a new install. Host-only `fsboot` tests do not demonstrate an on-device boot, and Pico/USB flash images must not be represented as working until tested. Do not modify Preboot, APFS, NVRAM, firmware, or the phone without explicit approval and a recovery plan. Preserve stock-iOS boot, privacy restrictions, and existing desktop functionality. Document a concrete blocker when no early-boot NAND path is established; do not invent a workaround.
