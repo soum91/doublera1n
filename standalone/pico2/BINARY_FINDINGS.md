@@ -32,7 +32,9 @@ All addresses below are **file offsets in that exact raw executable**, not runti
 | `/boot/kernelcache` | string 0x13b2c1; reference 0x6264 | Another upgrade-path reference, not a validated staging location. |
 | Ramdisk loader predicate | 0xc1a68 -> 0xc1b68 | Predicate queries selector 0x02008b00 with argument 0x50000 through 0xb4c2c. Zero returns failure before image loading. Meaning remains unresolved; **do not blindly bypass it**. |
 | Candidate image load | 0xc1b20 -> 0x6a8e0 | The helper constructs `rdsk` and invokes this loader candidate. File access, image verification, volume selection and return-state semantics need tracing. |
-| Shared helper early gate | 0x1878 -> 0x2624; TBZ at 0x187c | Reads a global byte at base + 0x2ca880. A zero bit skips the shared setup; its initialization is another unresolved dependency. |
+| Shared helper early gate | 0x1878 -> 0x2624; TBZ at 0x187c | Reads a global byte at base + 0x2ca880. A zero bit skips shared setup. Its initializer has now been traced below. |
+
+The shared flag is **not an arbitrary unexplained toggle**: fsboot calls 0x23a0 at 0xc74 before calling the shared setup at 0xc8c. Function 0x23a0 looks up `boot-device` and `boot-partition`, constructs `%s%c`, and calls 0x24c0. That initializer passes `/boot` into 0x250c; its call at 0x2590 reaches 0xf0b64, a VFS/context-operation candidate. At 0x24f0/0x24f4 it compares the helper result with zero and stores the resulting success boolean at 0x24fc. The clearer is 0x2618 and getter is 0x2628. This establishes the flag's static producer and consumer; it does not establish what actual APFS volume the device resolves or that this operation succeeds from pwned DFU.
 
 These observations improve on the earlier generic `fsboot` hypothesis: there **is a concrete optional ramdisk-loading path reachable in the static fsboot call chain**. They do not demonstrate that the installed phone supplies the required path/key, that its boot policy allows this path, or that a jailbreak kernel and jbinit ramdisk will boot.
 
@@ -80,7 +82,7 @@ No fresh TSS signing check or daemon/rootfs validation was performed. These firm
 
 ## Next work, with concrete targets
 
-1. Trace initialization of base + 0x2ca880 and the source/namespace of `boot-ramdisk` through 0xa962c. Establish whether a volatile setting can select a file while preserving stock NVRAM and default boot policy.
+1. Continue from the now-traced flag initializer: resolve `boot-device`/`boot-partition` values and the operation at 0xf0b64, then the source/namespace of `boot-ramdisk` through 0xa962c. Establish whether a volatile setting can select a file while preserving stock NVRAM and default boot policy.
 2. Resolve selector 0x02008b00 and the 0x50000 argument, then trace the volume/file context passed to 0x6a8e0. Determine read-only access to the actual Preboot volume in the pwned-DFU launch context. No arbitrary gate bypass.
 3. Establish how kernel, TXM, SPTM, DeviceTree and trust cache would be supplied/patched in the same path. A ramdisk loader alone does not replace them.
 4. Only then design any required **separate** one-time internal-file staging and recovery procedure. No Preboot/APFS/NVRAM writes are included or authorized by this code.

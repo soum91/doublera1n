@@ -21,7 +21,7 @@ STOCK_SHA256 = '9f8d8c31484800b5dad37dbbc4953d8b4a9c969d46e7b53f82414a607e143f48
 STOCK_SIZE = 2842448
 APPLE_URL = ('https://updates.cdn-apple.com/2026FallFCS/585d6bab-0662-42a6-ac0f-1e0392ab92ef/'
              'iPhone12,3,iPhone12,5_27.0.1_24A446_Restore.ipsw')
-ANCHORS = ('boot-ramdisk', '/boot/ramdisk', '/boot/kernelcache', 'ramdisk-size',
+ANCHORS = ('boot-device', 'boot-partition', 'boot-ramdisk', '/boot/ramdisk', '/boot/kernelcache', 'ramdisk-size',
            '/System/Library/Caches/com.apple.kernelcaches/kernelcache',
            'mount upgrade partition', 'load upgrade iBEC')
 
@@ -161,7 +161,11 @@ def analyze(raw: bytes) -> dict:
     # Edges confirmed in this exact pinned image. These expose a shared rdsk
     # candidate path and its gate, without assigning undocumented API semantics.
     edges = []
-    for offset, meaning in ((0xc8c, 'fsboot calls shared setup helper'),
+    for offset, meaning in ((0xc74, 'fsboot calls boot-device/partition setup'),
+                            (0x247c, 'boot-device/partition setup calls context initializer'),
+                            (0x24ec, 'context initializer calls /boot setup candidate'),
+                            (0x2590, '/boot setup candidate calls VFS-like context operation'),
+                            (0xc8c, 'fsboot calls shared setup helper'),
                             (0x1a74, 'boot-ramdisk lookup candidate'),
                             (0x1ab8, 'optional boot-ramdisk path calls shared rdsk helper'),
                             (0x6200, 'upgrade /boot/ramdisk path calls same rdsk helper'),
@@ -183,6 +187,13 @@ def analyze(raw: bytes) -> dict:
         },
         'load_address': patcher.BASE, 'code_end_offset': code_end,
         'commands': commands, 'observed_direct_calls': edges,
+        'shared_setup_flag': {
+            'storage_offset_from_base': 0x2ca880,
+            'setter_offset': 0x24fc, 'clearer_offset': 0x2618, 'getter_offset': 0x2628,
+            'setter_condition': 'one when helper 0x250c returns zero, otherwise zero',
+            'setup_inputs': ['boot-device', 'boot-partition', '/boot'],
+            'actual_volume_access_verified': False,
+        },
         'anchors': {s: [{'string_offset': off, 'references': refs[off]} for off in offsets]
                     for s, offsets in strings.items()},
         'nand_read_proven': False, 'jailbreak_boot_proven': False,

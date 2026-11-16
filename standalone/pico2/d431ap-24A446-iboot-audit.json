@@ -58,6 +58,30 @@
   },
   "observed_direct_calls": [
     {
+      "offset": 3188,
+      "observation": "fsboot calls boot-device/partition setup",
+      "kind": "bl",
+      "target_offset": 9120
+    },
+    {
+      "offset": 9340,
+      "observation": "boot-device/partition setup calls context initializer",
+      "kind": "bl",
+      "target_offset": 9408
+    },
+    {
+      "offset": 9452,
+      "observation": "context initializer calls /boot setup candidate",
+      "kind": "bl",
+      "target_offset": 9484
+    },
+    {
+      "offset": 9616,
+      "observation": "/boot setup candidate calls VFS-like context operation",
+      "kind": "bl",
+      "target_offset": 985956
+    },
+    {
       "offset": 3212,
       "observation": "fsboot calls shared setup helper",
       "kind": "bl",
@@ -94,7 +118,114 @@
       "target_offset": 436448
     }
   ],
+  "shared_setup_flag": {
+    "storage_offset_from_base": 2926720,
+    "setter_offset": 9468,
+    "clearer_offset": 9752,
+    "getter_offset": 9768,
+    "setter_condition": "one when helper 0x250c returns zero, otherwise zero",
+    "setup_inputs": [
+      "boot-device",
+      "boot-partition",
+      "/boot"
+    ],
+    "actual_volume_access_verified": false
+  },
   "anchors": {
+    "boot-device": [
+      {
+        "string_offset": 1288369,
+        "references": [
+          {
+            "adrp_offset": 9184,
+            "add_offset": 9188,
+            "nearby_direct_branches": [
+              {
+                "offset": 9212,
+                "kind": "bl",
+                "target_offset": 693804
+              }
+            ]
+          },
+          {
+            "adrp_offset": 222104,
+            "add_offset": 222108,
+            "nearby_direct_branches": [
+              {
+                "offset": 222148,
+                "kind": "bl",
+                "target_offset": 695532
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "boot-partition": [
+      {
+        "string_offset": 1288386,
+        "references": [
+          {
+            "adrp_offset": 9248,
+            "add_offset": 9252,
+            "nearby_direct_branches": [
+              {
+                "offset": 9272,
+                "kind": "bl",
+                "target_offset": 694096
+              }
+            ]
+          },
+          {
+            "adrp_offset": 22120,
+            "add_offset": 22124,
+            "nearby_direct_branches": [
+              {
+                "offset": 22144,
+                "kind": "bl",
+                "target_offset": 22708
+              },
+              {
+                "offset": 22160,
+                "kind": "bl",
+                "target_offset": 695532
+              }
+            ]
+          },
+          {
+            "adrp_offset": 153300,
+            "add_offset": 153304,
+            "nearby_direct_branches": [
+              {
+                "offset": 153308,
+                "kind": "bl",
+                "target_offset": 159096
+              },
+              {
+                "offset": 153324,
+                "kind": "bl",
+                "target_offset": 694096
+              },
+              {
+                "offset": 153332,
+                "kind": "b",
+                "target_offset": 153340
+              },
+              {
+                "offset": 153340,
+                "kind": "bl",
+                "target_offset": 158620
+              },
+              {
+                "offset": 153344,
+                "kind": "bl",
+                "target_offset": 158224
+              }
+            ]
+          }
+        ]
+      }
+    ],
     "boot-ramdisk": [
       {
         "string_offset": 1288230,
