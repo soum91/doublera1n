@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added a host-only Pico 2 internal-storage `fsboot` proof-of-concept in `standalone/pico2/nand_fsboot.py`, with source-audit preconditions, a fail-closed raw-iBEC patch preparation, nine offline tests, and documentation of why the existing installed `DataB` cannot simply replace the separate jbinit ramdisk/firmware chain. This **does not generate flashable UF2**, has never been run on an iPhone, and makes no device, NVRAM, Preboot, installer, or existing desktop boot changes. See `standalone/pico2/NAND_FSBOOT.md`.
+
 - Added an experimental Raspberry Pi Pico 2 standalone-rebooter foundation under `standalone/pico2/` for already-installed d431ap/24A446 OS B. The read-only exporter packages the existing personalized `osbjb` boot chain for external microSD; the portable C parser and CRC preflight verify exact stage order and integrity. Nine host tests and a strict native C build pass. This is **not flashable UF2 firmware**: RP2350 SD and USB Recovery bulk-upload transport are still missing. No installer, phone filesystem, or existing desktop boot code changed.
 
 - Switched the standalone probe build to native ad-hoc `codesign` with DER entitlements and strict signature verification after the first V2 build compiled but failed signature verification. CI now also checks the embedded USB/network entitlements and stops on inspection errors rather than hiding them behind `tee`.
