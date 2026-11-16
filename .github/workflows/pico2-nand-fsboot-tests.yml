@@ -1,0 +1,24 @@
+name: Pico 2 NAND fsboot offline tests
+on:
+  push:
+    paths:
+      - 'standalone/pico2/nand_fsboot.py'
+      - 'standalone/pico2/NAND_FSBOOT.md'
+      - 'tests/test_nand_fsboot.py'
+      - '.github/workflows/pico2-nand-fsboot-tests.yml'
+  pull_request:
+    paths:
+      - 'standalone/pico2/nand_fsboot.py'
+      - 'standalone/pico2/NAND_FSBOOT.md'
+      - 'tests/test_nand_fsboot.py'
+      - '.github/workflows/pico2-nand-fsboot-tests.yml'
+jobs:
+  offline-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python3 -m unittest discover -s tests -p 'test_nand_fsboot.py' -v
+      - run: python3 standalone/pico2/nand_fsboot.py audit
