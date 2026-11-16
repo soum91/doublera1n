@@ -4,6 +4,10 @@ Date: 2026-11-16. Target: iPhone 11 Pro Max, d431ap, iOS 27.0.1 / 24A446.
 
 This work continues the **already-installed DataB rebooter**. The second environment and Sileo previously reached the Home Screen according to the user. The November 10 ramdisk failure is historical. No installation is needed for this investigation.
 
+## Newer implementation
+
+Read [NAND_BOOT.md](NAND_BOOT.md) for the resolved configuration flag, Preboot role/hash-prefix selection, transient path wrapper, ramdisk failure guard, private exporter and Pico transport integration. The "next work" below records the earlier investigation state and has been superseded by that implementation. Hardware boot proof remains outstanding.
+
 ## New evidence
 
 We downloaded only BuildManifest, iBSS, iBEC, kernelcache, TXM and DeviceTree from the [exact Apple IPSW](https://updates.cdn-apple.com/2026FallFCS/585d6bab-0662-42a6-ac0f-1e0392ab92ef/iPhone12,3,iPhone12,5_27.0.1_24A446_Restore.ipsw) using HTTP ranges. No APTicket request, device connection or phone write occurred.

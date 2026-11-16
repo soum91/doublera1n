@@ -118,6 +118,55 @@
       "target_offset": 436448
     }
   ],
+  "resolved_preconditions": {
+    "evidence": "EXACT_IMAGE_STATIC_RESOLUTION",
+    "ramdisk_loader_enabled": true,
+    "ramdisk_config": {
+      "selector": 33590016,
+      "value": true,
+      "winner_offset": 1311464,
+      "registrations": [
+        {
+          "registration_offset": 1284688,
+          "record_offset": 1311464,
+          "fallback": false,
+          "value": true
+        },
+        {
+          "registration_offset": 1285072,
+          "record_offset": 1565304,
+          "fallback": true,
+          "value": false
+        }
+      ]
+    },
+    "ramdisk_gate_requires_patch": false,
+    "default_filesystem": "apfs",
+    "filesystem_descriptor_offset": 1261056,
+    "default_apfs_role": 16,
+    "default_apfs_role_name": "Preboot",
+    "mount_callback_offset": 582312,
+    "role_selector_offset": 567928,
+    "role_field_offset_in_apfs_superblock": 964,
+    "environment_scope": "RAM dictionary at base+0x2c57a0",
+    "environment_string_setter_offset": 695532,
+    "preboot_prefix_builder": {
+      "entry_offset": 209640,
+      "format": "%s/%s",
+      "hash_hex_case": "uppercase",
+      "hash_bytes": 48,
+      "fallback_active_file_format": "%s/active",
+      "fallback_active_file_is_never_modified": true
+    },
+    "path_overrides": [
+      "boot-path",
+      "dt-path",
+      "tc-path",
+      "txm-path",
+      "boot-ramdisk"
+    ],
+    "device_access_verified": false
+  },
   "shared_setup_flag": {
     "storage_offset_from_base": 2926720,
     "setter_offset": 9468,
@@ -220,6 +269,69 @@
                 "offset": 153344,
                 "kind": "bl",
                 "target_offset": 158224
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "txm-path": [
+      {
+        "string_offset": 1290133,
+        "references": [
+          {
+            "adrp_offset": 21896,
+            "add_offset": 21900,
+            "nearby_direct_branches": [
+              {
+                "offset": 21920,
+                "kind": "bl",
+                "target_offset": 22676
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "tc-path": [
+      {
+        "string_offset": 1288081,
+        "references": [
+          {
+            "adrp_offset": 4608,
+            "add_offset": 4612,
+            "nearby_direct_branches": [
+              {
+                "offset": 4636,
+                "kind": "bl",
+                "target_offset": 693804
+              }
+            ]
+          },
+          {
+            "adrp_offset": 7196,
+            "add_offset": 7200,
+            "nearby_direct_branches": [
+              {
+                "offset": 7216,
+                "kind": "bl",
+                "target_offset": 693804
+              },
+              {
+                "offset": 7232,
+                "kind": "bl",
+                "target_offset": 8684
+              }
+            ]
+          },
+          {
+            "adrp_offset": 22088,
+            "add_offset": 22092,
+            "nearby_direct_branches": [
+              {
+                "offset": 22112,
+                "kind": "bl",
+                "target_offset": 22676
               }
             ]
           }

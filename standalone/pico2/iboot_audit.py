@@ -21,7 +21,7 @@ STOCK_SHA256 = '9f8d8c31484800b5dad37dbbc4953d8b4a9c969d46e7b53f82414a607e143f48
 STOCK_SIZE = 2842448
 APPLE_URL = ('https://updates.cdn-apple.com/2026FallFCS/585d6bab-0662-42a6-ac0f-1e0392ab92ef/'
              'iPhone12,3,iPhone12,5_27.0.1_24A446_Restore.ipsw')
-ANCHORS = ('boot-device', 'boot-partition', 'boot-ramdisk', '/boot/ramdisk', '/boot/kernelcache', 'ramdisk-size',
+ANCHORS = ('boot-device', 'boot-partition', 'txm-path', 'tc-path', 'boot-ramdisk', '/boot/ramdisk', '/boot/kernelcache', 'ramdisk-size',
            '/System/Library/Caches/com.apple.kernelcaches/kernelcache',
            'mount upgrade partition', 'load upgrade iBEC')
 
@@ -187,6 +187,7 @@ def analyze(raw: bytes) -> dict:
         },
         'load_address': patcher.BASE, 'code_end_offset': code_end,
         'commands': commands, 'observed_direct_calls': edges,
+        'resolved_preconditions': resolve_preconditions(raw),
         'shared_setup_flag': {
             'storage_offset_from_base': 0x2ca880,
             'setter_offset': 0x24fc, 'clearer_offset': 0x2618, 'getter_offset': 0x2628,
@@ -199,6 +200,66 @@ def analyze(raw: bytes) -> dict:
         'nand_read_proven': False, 'jailbreak_boot_proven': False,
         'interpretation': 'The /boot paths occur in upgrade code. fsboot also reaches a shared helper with an optional boot-ramdisk lookup and a feature-gated rdsk loader. Static references do not establish volume access, key semantics, or jailbreak startup.',
     }
+
+
+def resolve_boolean_config(raw: bytes, base: int, table_start: int, table_end: int, selector: int):
+    """Resolve inline bool records using iBoot's two-pass registration policy.
+
+    Bit 28 marks a fallback: a concrete registration wins. This is deliberately
+    limited to the observed inline-boolean descriptor type, not dynamic getters.
+    """
+    if table_start < 0 or table_end > len(raw) or (table_end - table_start) % 32:
+        raise AuditError('invalid configuration registration table')
+    records = []
+    for offset in range(table_start, table_end, 32):
+        pointer = struct.unpack_from('<Q', raw, offset)[0] - base
+        if not 0 <= pointer <= len(raw) - 9:
+            raise AuditError('configuration record outside verified image')
+        key, flags = struct.unpack_from('<II', raw, pointer)
+        if key != selector:
+            continue
+        if flags & ~0x10000000 != 0x00050000:
+            raise AuditError('configuration is not the verified inline boolean type')
+        records.append({'registration_offset': offset, 'record_offset': pointer,
+                        'fallback': bool(flags & 0x10000000), 'value': bool(raw[pointer + 8])})
+    concrete = [r for r in records if not r['fallback']]
+    fallback = [r for r in records if r['fallback']]
+    if len(concrete) > 1 or (not concrete and len(fallback) != 1) or not records:
+        raise AuditError('missing or ambiguous inline boolean registration')
+    winner = (concrete or fallback)[0]
+    return {'selector': selector, 'value': winner['value'], 'winner_offset': winner['record_offset'],
+            'registrations': records}
+
+
+def resolve_preconditions(raw: bytes):
+    validate_raw(raw)
+    base = struct.unpack_from('<Q', raw, 0x380)[0]
+    flag = resolve_boolean_config(raw, base, 0x139890, 0x13a6f0, 0x02008b00)
+    # f08f4(0) selects the first registered filesystem; its descriptor names apfs.
+    descriptor = struct.unpack_from('<Q', raw, 0x1e9e60)[0] - base
+    if not 0 <= descriptor <= len(raw) - 32:
+        raise AuditError('filesystem descriptor out of bounds')
+    name = struct.unpack_from('<Q', raw, descriptor)[0] - base
+    if raw[name:name + 5] != b'apfs\0':
+        raise AuditError('default filesystem is no longer APFS')
+    # MOV W4,#0x10 before BL volume-role selector 8aa78.
+    if struct.unpack_from('<I', raw, 0x8e364)[0] != 0x52800204:
+        raise AuditError('default APFS role instruction changed')
+    return {'evidence': 'EXACT_IMAGE_STATIC_RESOLUTION',
+            'ramdisk_loader_enabled': flag['value'], 'ramdisk_config': flag,
+            'ramdisk_gate_requires_patch': False,
+            'default_filesystem': 'apfs', 'filesystem_descriptor_offset': descriptor,
+            'default_apfs_role': 16, 'default_apfs_role_name': 'Preboot',
+            'mount_callback_offset': 0x8e2a8, 'role_selector_offset': 0x8aa78,
+            'role_field_offset_in_apfs_superblock': 0x3c4,
+            'environment_scope': 'RAM dictionary at base+0x2c57a0',
+            'environment_string_setter_offset': 0xa9cec,
+            'preboot_prefix_builder': {'entry_offset': 0x332e8, 'format': '%s/%s',
+                                       'hash_hex_case': 'uppercase', 'hash_bytes': 48,
+                                       'fallback_active_file_format': '%s/active',
+                                       'fallback_active_file_is_never_modified': True},
+            'path_overrides': ['boot-path', 'dt-path', 'tc-path', 'txm-path', 'boot-ramdisk'],
+            'device_access_verified': False}
 
 
 def main(argv=None):

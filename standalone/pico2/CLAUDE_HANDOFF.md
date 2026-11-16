@@ -7,6 +7,10 @@
 
 ## Latest implementation update (2026-11-16)
 
+**Start with [NAND_BOOT.md](NAND_BOOT.md).** The static ramdisk flag is resolved as enabled; the APFS default selects Preboot; paths resolve beneath a hash directory. `nand_boot.py` now prepares a transient five-path wrapper plus a missing-ramdisk guard, preserves/revalidates retagged installed assets, and emits a private local staging map. EP0 transport, exact-device checks and source integration are implemented. Continue with the actual private workspace/staging/hardware acceptance steps there; do not repeat the old unresolved-flag hypothesis. No physical NAND boot or UF2 has been demonstrated.
+
+## Earlier binary-analysis update (2026-11-16)
+
 Read [BINARY_FINDINGS.md](BINARY_FINDINGS.md) and [d431ap-24A446-iboot-audit.json](d431ap-24A446-iboot-audit.json) first. Exact Apple iBoot analysis located a shared, gated optional `boot-ramdisk` path reachable from fsboot. Continue from the concrete function offsets and unresolved gates there. `iboot_audit.py --apple-download` reproduces the static report without a phone or a personalized ticket. The raw first stage fits in 4 MiB; the complete current upload chain does not. No on-device no-SD boot has been demonstrated.
 
 ## Read this first
