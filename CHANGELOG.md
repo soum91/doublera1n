@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Compiled and independently verified a private personalized Pico 2 UF2 using the user's validated export, Pico SDK 2.2.0 and Arm GNU Toolchain 15.2.Rel1. The complete flash layout fits with 302,848 bytes remaining. Preboot staging and physical boot remain pending. Public metadata is in `standalone/pico2/BUILD_VALIDATION.md`.
+
 - Corrected the NAND export's default workspace root to match the successful installer's repository-local `dualboot-work` directory, including its `DUALBOOT_HOME` override.
 
 - Added the Pico 2 NAND candidate/export and USB transport tools on top of successful-installation commit `537622e5e041445b0d2ff9de7a1df5e6248c8670`. Existing desktop installer, boot chain, payload binaries, firmware profiles and libraries are preserved byte-for-byte from that commit.

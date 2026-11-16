@@ -2,7 +2,7 @@
 
 This branch preserves successful installation commit `537622e`. Read [WORKING_BASE.md](WORKING_BASE.md) for the original generated profile and export command. Its desktop boot libraries and patch plans take precedence over earlier examples in this document.
 
-**Status: implemented host preparation and USB transport; device-untested. No working-boot claim or UF2.**
+**Status: personalized Pico 2 UF2 compiled and verified offline. Preboot staging and physical boot validation remain pending.** See [BUILD_VALIDATION.md](BUILD_VALIDATION.md) for the measured build.
 
 Target: already-installed doublera1n DataB on d431ap / iOS 27.0.1 / 24A446, with a 4 MiB Pico 2. No reinstall, new microSD, stock OS update or automatic phone writes are involved.
 
