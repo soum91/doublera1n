@@ -8,3 +8,9 @@ For every release, use real commit/diff evidence and update `CHANGELOG.md` and G
 
 ## Active device failure handoff (2026-11-10)
 Read `docs/diagnostics/2026-11-10-d431ap-usb-probe-handoff.md` before editing iBoot/USB/ramdisk/dualboot boot logic. Target is iPhone 11 Pro Max d431ap build 24A446. USB disappears after bootx; no verified ramdisk or jailbreak. Separate observed traces from hypotheses and preserve data. Do not claim success from offline tests.
+
+## ACTIVE TASK: Pico 2-only no-microSD reboot of installed DataB (2026-11-15)
+
+**Read [standalone/pico2/CLAUDE_HANDOFF.md](standalone/pico2/CLAUDE_HANDOFF.md) in full before writing or changing Pico/bootloader code.** This is the current implementation assignment, and the earlier 2026-11-10 USB failure handoff is historical context, not a directive to repeat those experiments.
+
+Goal: Raspberry Pi Pico 2 (RP2350A, 4 MB flash) alone should re-enter an *already-installed* second Data jailbreak on iPhone 11 Pro Max `d431ap` / iOS 27.0.1 `24A446`, without a Mac/Windows machine, microSD, or reinstallation. The no-SD path is **not yet proven feasible**. Follow the handoff's evidence-first gates, implement only verifiable primitives, and document blockers instead of pretending an `fsboot` patch or host CI proves a jailbreak boot. No automatic phone/Preboot/NVRAM changes or unverified UF2 flashing; any phone-write step requires explicit user authorization.
