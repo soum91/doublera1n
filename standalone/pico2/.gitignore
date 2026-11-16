@@ -1,0 +1,8 @@
+*.bin
+*.uf2
+*.img4
+*.raw
+*.im4m
+*.der
+*.ipsw
+__pycache__/
