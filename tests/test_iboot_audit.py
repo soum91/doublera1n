@@ -4,6 +4,7 @@ import hashlib
 import importlib.util
 from pathlib import Path
 import struct
+import tempfile
 import unittest
 from unittest import mock
 
@@ -85,6 +86,56 @@ class BinaryAuditTests(unittest.TestCase):
         mismatched = struct.pack('<II', 0xb0000000, 0x91008001)
         self.assertEqual(audit.references(mismatched, len(mismatched), {0x1020}, fake)[0x1020], [])
         self.assertEqual(audit.references(raw, 4, {0x1020}, fake)[0x1020], [])
+
+class CLITests(unittest.TestCase):
+    def test_main_with_raw_file(self):
+        with mock.patch.object(audit, 'analyze', return_value={'status': 'ok'}) as analyze:
+            with tempfile.NamedTemporaryFile(suffix='.raw') as f:
+                f.write(b'raw-data')
+                f.flush()
+                result = audit.main(['--stock-ibec-raw', f.name])
+        self.assertEqual(result, 0)
+        analyze.assert_called_once()
+
+    def test_main_error_returns_nonzero(self):
+        with mock.patch.object(audit, 'analyze', side_effect=audit.AuditError('bad input')):
+            with tempfile.NamedTemporaryFile(suffix='.raw') as f:
+                f.write(b'raw-data')
+                f.flush()
+                result = audit.main(['--stock-ibec-raw', f.name])
+        self.assertEqual(result, 1)
+
+    def test_main_apple_download(self):
+        with mock.patch.object(audit, 'apple_raw', return_value=b'raw') as dl, \
+             mock.patch.object(audit, 'analyze', return_value={'status': 'ok'}):
+            result = audit.main(['--apple-download'])
+        self.assertEqual(result, 0)
+        dl.assert_called_once()
+
+    def test_main_firmware_dir(self):
+        with mock.patch.object(audit, 'firmware_raw', return_value=b'raw') as fw, \
+             mock.patch.object(audit, 'analyze', return_value={'status': 'ok'}):
+            result = audit.main(['--firmware-dir', '/tmp/firmware'])
+        self.assertEqual(result, 0)
+        fw.assert_called_once()
+
+
+class DirectBranchEdgeCases(unittest.TestCase):
+    def test_negative_offset_wraps_correctly(self):
+        # BL -0x100 from offset 0x200 -> target 0x100
+        imm = (-0x100 // 4) & 0x3ffffff
+        word = 0x94000000 | imm
+        result = audit.direct_branch(word, 0x200)
+        self.assertIsNotNone(result)
+        self.assertEqual(result['target_offset'], 0x100)
+        self.assertEqual(result['kind'], 'bl')
+
+    def test_b_unconditional_forward(self):
+        # B +0x10 from offset 0x0 -> target 0x10
+        word = 0x14000000 | (0x10 // 4)
+        result = audit.direct_branch(word, 0)
+        self.assertEqual(result, {'kind': 'b', 'target_offset': 0x10})
+
 
 if __name__ == '__main__':
     unittest.main()

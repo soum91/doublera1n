@@ -201,5 +201,74 @@ class ExportValidationTests(unittest.TestCase):
             with self.assertRaisesRegex(boot.BootError, 'new private directory'):
                 boot.export_workspace(root / 'ws', root / 'raw', root / 'output')
 
+    def test_output_inside_repo_root_rejected(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            with mock.patch.object(boot, 'ROOT', root):
+                with self.assertRaisesRegex(boot.BootError, 'new private directory'):
+                    boot.export_workspace(root / 'ws', root / 'raw', root / 'output')
+
+
+class WrapperPathValidationTests(unittest.TestCase):
+    def setUp(self):
+        self.patcher = audit.patcher_module()
+        self.valid_overrides = [(a[4], '/doublera1n-pico2/0123456789abcdef0123/' + a[3]) for a in boot.ASSETS]
+
+    def test_rejects_directory_traversal(self):
+        bad = [(k, '/doublera1n-pico2/../../../etc/' + v.rsplit('/', 1)[-1]) for k, v in self.valid_overrides]
+        with self.assertRaisesRegex(boot.BootError, 'invalid staging path'):
+            boot.build_wrapper(0x19c050000, boot.MEMBOOT, boot.MEMBOOT_BYTES, bad, self.patcher)
+
+    def test_rejects_non_ascii_path(self):
+        bad = [(self.valid_overrides[0][0], '/doublera1n-pico2/\x80bad/kernel.img4')]
+        bad += self.valid_overrides[1:]
+        with self.assertRaisesRegex(boot.BootError, 'staging namespace'):
+            boot.build_wrapper(0x19c050000, boot.MEMBOOT, boot.MEMBOOT_BYTES, bad, self.patcher)
+
+    def test_rejects_path_outside_namespace(self):
+        bad = [(self.valid_overrides[0][0], '/boot/kernel.img4')] + self.valid_overrides[1:]
+        with self.assertRaisesRegex(boot.BootError, 'dedicated Preboot staging namespace'):
+            boot.build_wrapper(0x19c050000, boot.MEMBOOT, boot.MEMBOOT_BYTES, bad, self.patcher)
+
+    def test_rejects_null_in_path(self):
+        bad = [(self.valid_overrides[0][0], '/doublera1n-pico2/test/kern\x00el.img4')]
+        bad += self.valid_overrides[1:]
+        with self.assertRaisesRegex(boot.BootError, 'staging namespace'):
+            boot.build_wrapper(0x19c050000, boot.MEMBOOT, boot.MEMBOOT_BYTES, bad, self.patcher)
+
+    def test_rejects_empty_or_wrong_number_of_overrides(self):
+        with self.assertRaisesRegex(boot.BootError, 'unexpected environment override'):
+            boot.build_wrapper(0x19c050000, boot.MEMBOOT, boot.MEMBOOT_BYTES, [], self.patcher)
+        with self.assertRaisesRegex(boot.BootError, 'unexpected environment override'):
+            boot.build_wrapper(0x19c050000, boot.MEMBOOT, boot.MEMBOOT_BYTES, self.valid_overrides[:3], self.patcher)
+
+
+class CLITests(unittest.TestCase):
+    def test_selfcheck_reports_device_untested(self):
+        with mock.patch.object(boot.iboot_audit, 'apple_raw', return_value=b'raw'), \
+             mock.patch.object(boot, 'prepare_candidate',
+                               return_value=(b'candidate', {'status': 'DEVICE_UNTESTED_NAND_BOOT_CANDIDATE'})) as prep:
+            result = boot.main(['selfcheck', '--apple-download'])
+        self.assertEqual(result, 0)
+        prep.assert_called_once()
+
+    def test_selfcheck_error_returns_nonzero(self):
+        with mock.patch.object(boot.iboot_audit, 'apple_raw', side_effect=boot.BootError('test error')):
+            result = boot.main(['selfcheck', '--apple-download'])
+        self.assertEqual(result, 1)
+
+    def test_export_error_returns_nonzero(self):
+        with tempfile.TemporaryDirectory() as temp:
+            result = boot.main(['export', '--workspace', temp, '--output', '/nonexistent/path/out'])
+        self.assertEqual(result, 1)
+
+    def test_export_timeout_returns_nonzero(self):
+        import subprocess as sp
+        with mock.patch.object(boot.iboot_audit, 'firmware_raw', side_effect=sp.TimeoutExpired('cmd', 120)):
+            with tempfile.TemporaryDirectory() as temp:
+                result = boot.main(['export', '--workspace', temp, '--output', '/tmp/test-out'])
+        self.assertEqual(result, 1)
+
+
 if __name__ == '__main__':
     unittest.main()

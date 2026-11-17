@@ -6,6 +6,7 @@ on:
       - 'tests/test_nand_boot.py'
       - 'tests/test_nand_transport.py'
       - 'tests/test_pico_nand_integration.py'
+      - 'tests/test_iboot_audit.py'
       - '.github/workflows/pico2-nand-boot-tests.yml'
   pull_request:
     paths:
@@ -13,6 +14,7 @@ on:
       - 'tests/test_nand_boot.py'
       - 'tests/test_nand_transport.py'
       - 'tests/test_pico_nand_integration.py'
+      - 'tests/test_iboot_audit.py'
       - '.github/workflows/pico2-nand-boot-tests.yml'
 permissions:
   contents: read
@@ -25,6 +27,8 @@ jobs:
         with:
           python-version: '3.11'
       - run: python3 -m pip install pyimg4==0.8.9 unicorn==2.1.4
+      - name: Binary analysis and configuration resolution tests
+        run: python3 -m unittest discover -s tests -p 'test_iboot_audit.py' -v
       - name: Execute ARM64 wrappers and validate private export behavior
         run: python3 -m unittest discover -s tests -p 'test_nand_boot.py' -v
       - name: Compile and execute portable USB control transport tests

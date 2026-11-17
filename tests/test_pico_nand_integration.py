@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from unittest import mock
 import zlib
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'standalone/pico2'))
 import integrate_pico as integration
@@ -51,5 +52,45 @@ class PicoIntegrationTests(unittest.TestCase):
         (self.source / 'autoboot.c').write_bytes(self.original + b'changed')
         with self.assertRaisesRegex(integration.IntegrationError, 'unsupported'):
             integration.integrate(self.source, self.private)
+
+    def test_rejects_private_inside_source_tree(self):
+        private_inside = self.source / 'private_export'
+        private_inside.mkdir()
+        for name in ('stage-map.json', 'nand-first-stage.raw', 'nand_device_config.h'):
+            (private_inside / name).write_bytes((self.private / name).read_bytes())
+        with self.assertRaisesRegex(integration.IntegrationError, 'outside the firmware source'):
+            integration.integrate(self.source, private_inside)
+        # Source files must not be modified
+        self.assertEqual((self.source / 'autoboot.c').read_bytes(), self.original)
+
+    def test_rejects_existing_transport_files(self):
+        (self.source / 'nand_transport.c').write_text('// existing')
+        with self.assertRaisesRegex(integration.IntegrationError, 'refusing to overwrite'):
+            integration.integrate(self.source, self.private)
+
+    def test_rejects_mismatched_candidate_digest(self):
+        report = json.loads((self.private / 'stage-map.json').read_text())
+        report['candidate_sha256'] = 'deadbeef' * 8
+        (self.private / 'stage-map.json').write_text(json.dumps(report))
+        with self.assertRaisesRegex(integration.IntegrationError, 'digest mismatch'):
+            integration.integrate(self.source, self.private)
+
+    def test_rejects_zero_ecid(self):
+        report = json.loads((self.private / 'stage-map.json').read_text())
+        report['ticket_ecid_hex'] = '0000000000000000'
+        (self.private / 'stage-map.json').write_text(json.dumps(report))
+        with self.assertRaisesRegex(integration.IntegrationError, 'ECID'):
+            integration.integrate(self.source, self.private)
+
+    def test_cli_success(self):
+        result = integration.main(['--source-root', str(self.source),
+                                    '--private-export', str(self.private)])
+        self.assertEqual(result, 0)
+
+    def test_cli_error_returns_nonzero(self):
+        result = integration.main(['--source-root', str(self.source / 'nonexistent'),
+                                    '--private-export', str(self.private)])
+        self.assertEqual(result, 1)
+
 
 if __name__ == '__main__': unittest.main()

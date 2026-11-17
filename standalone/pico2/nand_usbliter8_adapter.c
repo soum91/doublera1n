@@ -73,10 +73,16 @@ static int reset_on_bus(bus_t *bus, void *ctx) {
 }
 static int wait_recovery(void *ctx, uint32_t timeout_ms) {
     (void)ctx;
-    /* One initial reset after giving raw iBoot time to leave DFU. Do not reset
-       a healthy Recovery device repeatedly while it is coming up. */
+    /* Give raw iBoot time to leave DFU, then reset the bus. Retry the
+       initial reset a few times: the phone may need longer to re-enumerate
+       after exploitation, and a single bus-reset failure is not fatal. */
     sleep_ms(2000);
-    if (usb_bus_execute(reset_on_bus, NULL, 0)) return -1;
+    int reset_ok = 0;
+    for (unsigned attempt = 0; attempt < 3 && !reset_ok; ++attempt) {
+        if (!usb_bus_execute(reset_on_bus, NULL, 0)) reset_ok = 1;
+        else sleep_ms(500);
+    }
+    if (!reset_ok) return -1;
     for (uint32_t elapsed = 2000; elapsed < timeout_ms; elapsed += 500) {
         struct dbnand_identity id = {0};
         if (!identity(NULL, &id) && id.product >= 0x1280 && id.product <= 0x1283) return 0;

@@ -111,5 +111,27 @@ class NANDProbeTests(unittest.TestCase):
         self.assertEqual(self.out.read_bytes(), b'untouched')
 
 
+class CLITests(unittest.TestCase):
+    def test_audit_command_returns_zero(self):
+        root = Path(tempfile.mkdtemp())
+        try:
+            for directory in ('lib', 'src'):
+                (root / directory).mkdir(parents=True)
+            (root / 'lib/patch_iboot.py').write_text('def patch_fsboot_cmd(d, log): pass\n')
+            (root / 'lib/mk_osbjb.py').write_text("'patch_iboot.py'), '--no-fsboot',\ndef build_ramdisk(): pass\nsign(IM4P(fourcc='rdsk', payload=rd)\n")
+            (root / 'lib/boot_chain.py').write_text("send('RestoreRamdisk.img4', 'ramdisk'\nupload('Kernelcache.img4')\n")
+            (root / 'src/rdsetup.c').write_text('mount_apfs", "-o", "ro", predev\n"/mnt2/jb"\n')
+            with mock.patch.object(mod, 'ROOT', root):
+                result = mod.main(['audit'])
+            self.assertEqual(result, 0)
+        finally:
+            import shutil; shutil.rmtree(root)
+
+    def test_prepare_command_error_returns_nonzero(self):
+        result = mod.main(['prepare', '--stock-ibec-raw', '/nonexistent/path.raw',
+                           '--output', '/tmp/out.raw'])
+        self.assertEqual(result, 1)
+
+
 if __name__ == '__main__':
     unittest.main()

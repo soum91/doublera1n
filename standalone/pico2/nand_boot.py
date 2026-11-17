@@ -348,7 +348,7 @@ def main(argv=None):
                 except BundleError as error:
                     raise BootError(str(error)) from error
             print(json.dumps(export_workspace(workspace, args.stock_ibec_raw, args.output), indent=2))
-    except (BootError, iboot_audit.AuditError, OSError, ValueError, KeyError, ImportError) as e:
+    except (BootError, iboot_audit.AuditError, OSError, ValueError, KeyError, ImportError, subprocess.TimeoutExpired) as e:
         print('NAND boot preparation: ' + str(e), file=sys.stderr)
         return 1
     return 0
