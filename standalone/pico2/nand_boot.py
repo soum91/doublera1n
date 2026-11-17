@@ -249,11 +249,11 @@ def verify_patched_assets(workspace: Path, images: dict):
 
 
 def export_workspace(workspace: Path, stock_raw: Path | None, output: Path):
-    from pyimg4 import IMG4, IM4M
     workspace = workspace.expanduser().resolve()
     output = output.expanduser().resolve()
     if output.exists() or output.is_relative_to(workspace) or output.is_relative_to(ROOT):
         raise BootError('output must be a new private directory outside the repository and source workspace')
+    from pyimg4 import IMG4, IM4M
     state = json.loads((workspace / 'state.json').read_text())
     if state.get('installed') is not True or state.get('board') != BOARD or state.get('build') != BUILD:
         raise BootError('expected an already-installed d431ap/24A446 workspace')
