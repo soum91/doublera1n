@@ -2,3 +2,7 @@
 __pycache__/
 *.pyc
 .DS_Store
+
+# Local successful-installation workspace and private device exports.
+dualboot-work/
+/HANDOFF.md
