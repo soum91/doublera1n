@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Merged the working `537622e` desktop installer/boot code and Pico 2 build documentation while retaining the later NAND transport hardening and regression tests from `main`. Restored USB setup/ticket and SSH helper scripts, OS2 prototype code, firmware profiles and compiled supporting payloads. NAND private exporter can use the exact successful local firmware profile with `--profile-dir` and the installation checkout workspace root. Existing DataB and stock iOS are unchanged. A personalized Pico UF2 was compiled and validated **offline only**, remains private, and has NOT been flashed or boot-tested.
+
+
 - Added the missing `device_identify` declaration when integrating the Pico standalone add-on. This addresses the GCC 15 implicit-function-declaration error in its main entry point. Physical boot and the final ARM firmware build remain unverified.
 
 - Implemented a device-untested Pico 2 NAND reboot candidate: resolved the enabled ramdisk configuration flag, traced APFS Preboot role and BootManifestHash prefix, generated transient kernel/DT/TC/TXM/ramdisk path overrides, and guarded iBoot's false-success ramdisk load. Added private installed-workspace retagging with exact firmware/patch-plan and ticket checks, an EP0-only Pico transport with before/after device binding, and reviewed standalone-source integration that keeps private headers out of Git and labels handoff as unverified. Added ARM64 emulation, C transport and integration tests. No phone staging, physical boot, firmware build or UF2 is claimed; see `standalone/pico2/NAND_BOOT.md`.
