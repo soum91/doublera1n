@@ -5,6 +5,10 @@
 **Target:** the user's separate Raspberry Pi Pico 2 (RP2350A, 4 MiB flash), NOT their additional RP2354A-based DFU/PWN board. iPhone 11 Pro Max (`iPhone12,5`, board `d431ap`), installed iOS 27.0.1 (`24A446`).
 **User goal:** Re-enter the **already installed** doublera1n second Data environment and jailbreak after a restart, with only the Pico 2, **without a PC, Mac, microSD module, or another fresh installation**.
 
+## Native Micro-USB host connector feasibility (2026-11-19)
+
+The RP2350's integrated USB controller supports host mode through the Pico 2's built-in Micro-USB connector. The user prefers a Micro-USB-to-Lightning connection instead of soldered GP12/GP13 data wiring. **Current usbliter8 firmware is PIO-host-only for the exploit**: it uses GP12/GP13 to generate the low-level A13 DFU exploit signalling, and reserves the native USB controller for USB serial/programming. A cable plugged into the built-in port cannot run the present UF2. A true one-cable design requires a verified native-USB exploit rewrite/alternative low-level host primitive, plus protected external VBUS power and correct OTG cabling; ordinary TinyUSB host support does not prove the exploit's required timing/control can be reproduced. Do not call Pico wiring electrically inherent, only a requirement of the current firmware, and do not claim a native-port jailbreak build exists. See the hardware section of RUNBOOK.md.
+
 ## Confirmed hardware and build update (2026-11-19)
 
 - The user owns BOTH a genuine Raspberry Pi Pico 2 and a separate RP2354A DFU/PWN service board. Continue the original Pico 2 path; the 2 MiB RP2354A capacity restriction is irrelevant to the genuine Pico 2.
