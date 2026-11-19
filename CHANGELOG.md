@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added a private, read-only on-device shutdown diagnostic collector for the previously booted second Data environment. It captures uptime/boot metadata and available panic/watchdog/Jetsam reports over the existing Mac USB SSH path. It does not change the phone or claim to identify or fix the shutdown without a real trace. Added mocked SSH/path-safety tests and a diagnostic runbook.
+
 - Identified the RP2354A USB-C/Lightning PWN service board as distinct from a genuine 4 MiB Pico 2. RP2354A's integrated flash is 2 MiB; the current 3,891,456-byte UF2 flash extent cannot be used unchanged. Added a read-only board-capacity UF2 checker with fail-closed framing/range validation and offline regression tests, RP2354A hardware-port limitations, and explicit flash STOP instructions. No hardware flashing, Preboot writes or on-device boot occurred.
 
 
