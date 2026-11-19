@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Identified the RP2354A USB-C/Lightning PWN service board as distinct from a genuine 4 MiB Pico 2. RP2354A's integrated flash is 2 MiB; the current 3,891,456-byte UF2 flash extent cannot be used unchanged. Added a read-only board-capacity UF2 checker with fail-closed framing/range validation and offline regression tests, RP2354A hardware-port limitations, and explicit flash STOP instructions. No hardware flashing, Preboot writes or on-device boot occurred.
+
+
 - Added a complete Pico 2 no-microSD operation runbook, an opt-in isolated Preboot stager with device-bound path/size/SHA256 checks and atomic publishing, and a pinned personalized UF2 builder with full flash-layout/payload verification. Added nine mocked-SSH stage safety regressions. The stager performs **no device writes by default**, and phone Preboot staging requires the separate explicit `--stage` flag. No physical phone/Pico boot or wiring validation is claimed.
 
 
