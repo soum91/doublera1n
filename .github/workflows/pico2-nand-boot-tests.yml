@@ -9,6 +9,7 @@ on:
       - 'tests/test_iboot_audit.py'
       - 'tests/test_pico_preboot_stage.py'
       - 'tests/test_pico_board_preflight.py'
+      - 'tests/test_shutdown_diagnostics.py'
       - '.github/workflows/pico2-nand-boot-tests.yml'
   pull_request:
     paths:
@@ -19,6 +20,7 @@ on:
       - 'tests/test_iboot_audit.py'
       - 'tests/test_pico_preboot_stage.py'
       - 'tests/test_pico_board_preflight.py'
+      - 'tests/test_shutdown_diagnostics.py'
       - '.github/workflows/pico2-nand-boot-tests.yml'
 permissions:
   contents: read
@@ -41,5 +43,7 @@ jobs:
         run: python3 -m unittest discover -s tests -p 'test_pico_preboot_stage.py' -v
       - name: Reject invalid or oversized board-specific UF2 images
         run: python3 -m unittest discover -s tests -p 'test_pico_board_preflight.py' -v
+      - name: Validate private read-only panic/shutdown diagnostics
+        run: python3 -m unittest discover -s tests -p 'test_shutdown_diagnostics.py' -v
       - name: Validate source integration and private header isolation
         run: python3 -m unittest discover -s tests -p 'test_pico_nand_integration.py' -v
