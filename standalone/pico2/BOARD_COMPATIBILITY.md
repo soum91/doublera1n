@@ -1,8 +1,12 @@
-# RP2354A DFU/PWN board is NOT Raspberry Pi Pico 2
+# Two-board distinction: Raspberry Pi Pico 2 versus RP2354A DFU/PWN board
+
+## Confirmed user hardware (2026-11-19)
+
+The user owns **both** a standalone genuine Raspberry Pi Pico 2 and a separate RP2354A-based DFU/PWN service board. **The Pico 2 is the project target**, and the validated 3,891,456-byte boot image fits its 4 MiB flash (302,848 bytes remaining). The RP2354A limit applies only to the *other* board and must not be presented as blocking the user's Pico 2 work. Neither the Pico 2 USB-host electrical interface nor iPhone NAND loading has been physically validated.
 
 ## Why this matters
 
-The user's previously shown black A12/A13 DFU/PWN service board was identified as RP2354A-based, with USB-C (PC/target) and Lightning connectors. The present NAND UF2 work was built for a **genuine Raspberry Pi Pico 2** (RP2350A + **4 MiB** off-chip flash), exposed GPIOs GP12/13 and a Micro-USB programming port. These are different boards. Never use a Pico 2-specific UF2 with the RP2354A service board.
+The user also has a black A12/A13 DFU/PWN service board identified as RP2354A-based, with USB-C (PC/target) and Lightning connectors. The present NAND UF2 work was built for a **genuine Raspberry Pi Pico 2** (RP2350A + **4 MiB** off-chip flash), exposed GPIOs GP12/13 and a Micro-USB programming port. These are different boards. Never use a Pico 2-specific UF2 with the RP2354A service board.
 
 Raspberry Pi documents the RP2354A's **2 MiB in-package flash**:
 - https://www.raspberrypi.com/documentation/microcontrollers/microcontroller-chips.html
@@ -10,7 +14,7 @@ Raspberry Pi documents the RP2354A's **2 MiB in-package flash**:
 
 The candidate built 2026-11-16 has **3,891,456 bytes of flash extent**, including the **2,842,448-byte** personalized first-stage iBoot blob. Both exceed the RP2354A's 2,097,152-byte default flash space (extent by 1,794,304 bytes; raw first stage by 745,296 bytes). No additional flash on the exact service-board PCB has been identified or validated. Firmware capacity, target-side USB data pin routing, 5V VBUS power switching, GPIO/LED controls and BOOTSEL procedure are unknown for this custom board.
 
-**Status: NOT compatible, not flashed, not tested.** No assertion of extra flash or a usable GP12/GP13 Lightning path is justified without the PCB schematic or electrical verification. A UF2 container of ~5.8 MB is not its flash extent; the validated *flash extent* is ~3.89 MiB.
+**Status on the separate RP2354A board only: NOT compatible, not flashed, not tested.** No assertion of extra flash or a usable GP12/GP13 Lightning path is justified without the PCB schematic or electrical verification. A UF2 container of ~5.8 MB is not its flash extent; the validated *flash extent* is ~3.89 MiB.
 
 ## Read-only capacity check
 
