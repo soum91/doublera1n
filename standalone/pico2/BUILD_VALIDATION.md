@@ -14,3 +14,7 @@ On 2026-11-16 the user's private export was validated and compiled into a person
 The host picotool dependency emitted GCC C++ `-Wfree-nonheap-object` warnings while compiling. The target firmware compiled and linked successfully. No phone staging, Pico flashing or physical boot was performed in this environment.
 
 The UF2 and private assets remain private. They are excluded from public Git and CI artifacts. An existing Preboot hash directory, its mount state and free space must be inspected before the one-time staging copy. Booting this candidate requires those five files at the private staging map's paths.
+
+## Main integration note (2026-11-19)
+
+This report records a private UF2 built against the original `pico2-working-537622e` lineage, **before** its source was reconciled with newer `main`. It is evidence of successful **offline compilation, flash-layout validation and UF2 parsing**, not an iPhone boot. The UF2 and private ticket/identity data remain outside Git. Merging source does not automatically regenerate the UF2 or authorize any write to the phone's Preboot, NVRAM or APFS volumes.
