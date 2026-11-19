@@ -1,6 +1,6 @@
 # Successful installation base
 
-This branch starts at `537622e5e041445b0d2ff9de7a1df5e6248c8670`, the commit identified by the user's successful installation checkout. Pico tools are additive. The desktop installer, boot scripts, payload, libraries and profiles retain the successful commit's bytes.
+The `pico2-working-537622e` branch started at `537622e5e041445b0d2ff9de7a1df5e6248c8670`, the commit identified by the successful installation checkout. On 2026-11-19 the desktop installer/boot scripts and their supporting helpers, payloads and profiles were integrated into `main`, retaining the newer Pico NAND safeguards and CI tests. The old branch remains available as the original working reference. This merge has not been physically revalidated on the device.
 
 The d431ap/24A446 profile generated on the installation Mac must be retained. Public profiles from another development branch can contain different patch records. Validate existing boot assets against the original profile with `--profile-dir` when it is located outside this checkout.
 
