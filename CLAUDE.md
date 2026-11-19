@@ -22,3 +22,7 @@ Start with `standalone/pico2/BINARY_FINDINGS.md`: real d431ap/24A446 iBoot analy
 ### NAND loader implementation continuation (2026-11-16)
 
 Read `standalone/pico2/NAND_BOOT.md` before continuing. The configuration flag and Preboot/hash directory selection are statically resolved; candidate preparation, transient five-path overrides, a missing-ramdisk guard, private installed-asset export and guarded Pico EP0 transport/source wiring now exist. The original successful private workspace and a physical device trace remain necessary. Do not claim a working rebooter, flash a generic candidate, or repeat the superseded unresolved-gate investigation.
+
+### Successful-installation merge and private Pico UF2 (2026-11-19)
+
+The `pico2-working-537622e` branch demonstrates **private personalized UF2 compilation and offline flash-format validation**, but not a successful physical jailbreak boot. Read `standalone/pico2/BUILD_VALIDATION.md`, `WORKING_BASE.md` and `NAND_BOOT.md`. The successful `537622e` desktop installation/boot lineage, helper scripts and payloads are now in `main`, with later NAND EP0 guards and host tests retained. Avoid replacing this baseline with the divergent older diagnostic code. The original locally generated successful firmware profile may differ from the public profile: support `nand_boot.py export --profile-dir` and `DUALBOOT_HOME` or the repository's `dualboot-work` directory. Never publish the original private UF2, staged IMG4s or device binding information. Do not claim device support from CI alone.
