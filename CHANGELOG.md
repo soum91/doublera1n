@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added a complete Pico 2 no-microSD operation runbook, an opt-in isolated Preboot stager with device-bound path/size/SHA256 checks and atomic publishing, and a pinned personalized UF2 builder with full flash-layout/payload verification. Added nine mocked-SSH stage safety regressions. The stager performs **no device writes by default**, and phone Preboot staging requires the separate explicit `--stage` flag. No physical phone/Pico boot or wiring validation is claimed.
+
+
 - Merged the working `537622e` desktop installer/boot code and Pico 2 build documentation while retaining the later NAND transport hardening and regression tests from `main`. Restored USB setup/ticket and SSH helper scripts, OS2 prototype code, firmware profiles and compiled supporting payloads. NAND private exporter can use the exact successful local firmware profile with `--profile-dir` and the installation checkout workspace root. Existing DataB and stock iOS are unchanged. A personalized Pico UF2 was compiled and validated **offline only**, remains private, and has NOT been flashed or boot-tested.
 
 
