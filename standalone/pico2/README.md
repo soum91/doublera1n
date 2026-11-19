@@ -1,5 +1,7 @@
 # doublera1n Pico 2 standalone rebooter (development)
 
+**One-pass Mac instructions:** [RUNBOOK.md](RUNBOOK.md). Optional guarded stager: `stage_preboot.py` (read-only unless explicitly invoked with `--stage`). Pinned candidate UF2 builder: `build_pico2_uf2.sh`. These scripts package existing local private assets and do **not** prove on-device iBoot/Preboot loading, safe hardware wiring, or a complete jailbreak boot. Never upload personalized UF2 or stage-map files.
+
 **Hardware target:** Raspberry Pi **Pico 2**, RP2350A, 4 MB onboard QSPI flash, no onboard microSD socket. **Phone target:** iPhone 11 Pro Max, `d431ap`, iOS `27.0.1` build `24A446`, with *second Data volume already installed*. The existing `soum91/doublera1n` Mac boot is the reference.
 
 **STATUS: IMPLEMENTATION IN PROGRESS, NOT A WORKING UF2. DO NOT FLASH THIS AS AN IPHONE BOOTER.** This directory currently implements a complete read-only boot-file exporter, portable boot-plan parser, CRC preflight, and ordered stage runner abstraction. The missing hardware pieces are an SPI microSD/FatFs reader, an Apple USB Recovery bulk image uploader, and the attachment of this runner to the upstream usbliter8 PIO-USB exploit and DFU helper. No physical boot has been demonstrated.
