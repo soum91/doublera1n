@@ -244,6 +244,19 @@ class WrapperPathValidationTests(unittest.TestCase):
 
 
 class CLITests(unittest.TestCase):
+    def test_export_accepts_original_successful_profile_directory(self):
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / 'successful-workspace'
+            original_profile = Path(temp) / 'original-profile'
+            dest = Path(temp) / 'private-export'
+            with mock.patch.object(boot, 'export_workspace',
+                                   return_value={'status': 'HOST_ONLY_TEST'}) as exporter:
+                result = boot.main(['export', '--workspace', str(source),
+                                    '--profile-dir', str(original_profile),
+                                    '--output', str(dest)])
+        self.assertEqual(result, 0)
+        self.assertEqual(exporter.call_args.args, (source, None, dest, original_profile))
+
     def test_selfcheck_reports_device_untested(self):
         with mock.patch.object(boot.iboot_audit, 'apple_raw', return_value=b'raw'), \
              mock.patch.object(boot, 'prepare_candidate',
