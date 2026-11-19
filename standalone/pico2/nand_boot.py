@@ -200,7 +200,7 @@ def raw_payload(image):
     return copy.payload.output().data
 
 
-def verify_patched_assets(workspace: Path, images: dict):
+def verify_patched_assets(workspace: Path, images: dict, profile_dir: Path | None = None):
     """Recreate kernel, TXM and DT bytes from build-matched stock firmware."""
     from pyimg4 import IM4P
     import plistlib
@@ -220,7 +220,9 @@ def verify_patched_assets(workspace: Path, images: dict):
         data = path.read_bytes()
         if hashlib.sha384(data).digest() != entry['Digest']: raise BootError('stock component digest mismatch')
         return raw_payload(IM4P(data))
-    profile = ROOT / 'profiles' / f'{BOARD}-{BUILD}'
+    profile = (profile_dir or ROOT / 'profiles' / f'{BOARD}-{BUILD}').expanduser().resolve()
+    if not profile.is_dir():
+        raise BootError('successful installation profile missing; pass --profile-dir pointing to the original matching firmware profile')
     for filename, key, records, excluded in (
         ('Kernelcache.img4', 'KernelCache', ('kernel-boot-jit.json', 'kernel-ramdisk.json', 'kernel-osb.json'), ('kernel.identity',)),
         ('TXM.img4', 'Ap,TrustedExecutionMonitor', ('txm-boot-permissive.json',), ())):
@@ -230,7 +232,7 @@ def verify_patched_assets(workspace: Path, images: dict):
         for offset, _old, new in kpf.records_to_words(original, recs):
             struct.pack_into('<I', expected, offset, new)
         if raw_payload(images[filename].im4p) != bytes(expected):
-            raise BootError(f'{filename} differs from the exact current jailbreak patch plans; rebuild desktop artifacts first')
+            raise BootError(f'{filename} differs from the selected installation profile; use the original profile that produced the installed boot assets')
     with tempfile.TemporaryDirectory(prefix='nand-dt-check-') as temp:
         src, dst = Path(temp) / 'stock', Path(temp) / 'expected'
         src.write_bytes(stock('DeviceTree'))
@@ -248,7 +250,7 @@ def verify_patched_assets(workspace: Path, images: dict):
         raise BootError('invalid v2 combined trust cache')
 
 
-def export_workspace(workspace: Path, stock_raw: Path | None, output: Path):
+def export_workspace(workspace: Path, stock_raw: Path | None, output: Path, profile_dir: Path | None = None):
     workspace = workspace.expanduser().resolve()
     output = output.expanduser().resolve()
     if output.exists() or output.is_relative_to(workspace) or output.is_relative_to(ROOT):
@@ -284,7 +286,7 @@ def export_workspace(workspace: Path, stock_raw: Path | None, output: Path):
             raise BootError('retag altered payload or installed ticket')
         retagged[name] = data
         files[name] = {'bytes': len(data), 'sha256': sha(data), 'fourcc': target_type, 'environment_key': key}
-    verify_patched_assets(workspace, images)
+    verify_patched_assets(workspace, images, profile_dir)
     identity = sha(json.dumps({'board': BOARD, 'build': BUILD, 'ticket_sha256': sha(canonical_ticket),
                               'files': files}, sort_keys=True).encode())[:20]
     namespace = '/doublera1n-pico2/' + identity
@@ -324,7 +326,8 @@ def main(argv=None):
     sub = p.add_subparsers(dest='command', required=True)
     export = sub.add_parser('export', help='private local image preparation; no phone writes')
     export.add_argument('--workspace', type=Path)
-    export.add_argument('--work-root', type=Path, default=Path(os.environ.get('DUALBOOT_HOME', '~/dualboot-work')).expanduser())
+    export.add_argument('--work-root', type=Path, default=Path(os.environ.get('DUALBOOT_HOME') or ROOT / 'dualboot-work').expanduser())
+    export.add_argument('--profile-dir', type=Path, help='exact profile used for the successful installation, if kept outside this checkout')
     export.add_argument('--stock-ibec-raw', type=Path, help='optional; normally extracted from the installed workspace firmware')
     export.add_argument('--output', type=Path, required=True)
     check = sub.add_parser('selfcheck', help='prepare in memory and report layout; no boot image saved')
@@ -347,7 +350,7 @@ def main(argv=None):
                     workspace = _auto_workspace(args.work_root.expanduser(), BOARD, BUILD)
                 except BundleError as error:
                     raise BootError(str(error)) from error
-            print(json.dumps(export_workspace(workspace, args.stock_ibec_raw, args.output), indent=2))
+            print(json.dumps(export_workspace(workspace, args.stock_ibec_raw, args.output, args.profile_dir), indent=2))
     except (BootError, iboot_audit.AuditError, OSError, ValueError, KeyError, ImportError, subprocess.TimeoutExpired) as e:
         print('NAND boot preparation: ' + str(e), file=sys.stderr)
         return 1

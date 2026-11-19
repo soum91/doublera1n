@@ -1,5 +1,8 @@
 # doublera1n: jailbreak your iPhone 11/SE2 by using a new data volume
 
+> **Successful-installation baseline merged (2026-11-19):** Desktop boot and installer files from the `537622e` working lineage are restored, while newer Pico NAND safeguards and host tests are retained. The Pico 2 no-SD booter has **not** been proven to boot the iPhone. A personalized UF2 was built and validated offline on the working branch; it remains private and untested on-device. See [working baseline](standalone/pico2/WORKING_BASE.md), [build validation](standalone/pico2/BUILD_VALIDATION.md), and [NAND status](standalone/pico2/NAND_BOOT.md). Do not reinstall DataB to prepare the Pico.
+
+
 > [!CAUTION]
 > CURRENTLY SUPPORTS iOS: 27.0-27.2 ON MAIN OS
 

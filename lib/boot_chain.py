@@ -5,111 +5,43 @@ usbliter8ctl boot iBSS.raw -> iBEC.img4 + go -> firmware... -> ramdisk -> device
 (= iBoot rejected the command) is detected; the chain stops before bootx on any failure."""
 import os, re, subprocess, sys, time
 import usb.core
-import usb.util
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 JB = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 import osbcfg
+from ibss_handoff import boot_ibss
 OSBJB = '--osbjb' in sys.argv   # OS B + jailbreak ramdisk (jbinit as PID 1, jb=md0)
 OSB = '--osb' in sys.argv or OSBJB
 RESUME = '--resume' in sys.argv   # OS B normal boot instead of the setup ramdisk
+SETUP = not OSB
 C = osbcfg.work('osbjb' if OSBJB else 'osb' if OSB else 'chain')
 CTL = os.environ.get('USBLITER8CTL') or os.path.join(JB, 'tools/usbliter8ctl')
 FIRMWARE = [('ANE.img4', 0), ('AOP.img4', 0), ('AVE.img4', 1), ('SPTM.img4', 3), ('TXM.img4', 0),
-            ('GFX.img4', 0), ('ISP.img4', 1), ('PMP.img4', 0), ('StaticTrustCache.img4', 0),
+            ('GFX.img4', 0), ('ISP.img4', 1), ('PMP.img4', 0),
             ('RestoreTrustCache.img4', 0), ('SIO.img4', 0), ('WCH.img4', 0)]
 OPTIONAL = {'WCH.img4'}             # wireless-charging firmware: iPads have none
-# iOS 27's SPTM/TXM and both trust caches are kept in the controlled minimal
-# experiment; only peripheral firmwares are omitted. Never use for installation.
-PROBE_CORE_FIRMWARE = frozenset({'SPTM.img4', 'TXM.img4',
-                                 'StaticTrustCache.img4', 'RestoreTrustCache.img4'})
-PROBE_BOOTARGS = 'rd=md0 -v debug=0x2014e'
-PROBE_REFERENCE_PREFIX = ('SPTM.img4', 'TXM.img4')
-PROBE_REFERENCE_PERIPHERALS = ('PMP.img4', 'AOP.img4', 'ANE.img4', 'AVE.img4',
-                               'ISP.img4', 'GFX.img4', 'SIO.img4', 'WCH.img4')
-PROBE_REFERENCE_TRUSTCACHES = ('StaticTrustCache.img4', 'RestoreTrustCache.img4')
-RECOVERY_PIDS = (0x1280, 0x1281, 0x1282, 0x1283)  # libirecovery's Recovery A/B/C/D
-if OSB: FIRMWARE = [f for f in FIRMWARE if f[0] != 'StaticTrustCache.img4']   # System TC sent as rtsc (mk_osb.py)
 
-def recovery_devices():
-    """Enumerate all documented Apple Recovery USB IDs, not just 0x1281."""
-    for pid in RECOVERY_PIDS:
-        d = usb.core.find(idVendor=0x05ac, idProduct=pid)
-        if d is not None:
-            yield d
-
-def device_diagnostics():
-    """Read-only mode details; never send another image on an ambiguous USB state."""
-    try:
-        devices = usb.core.find(find_all=True, idVendor=0x05ac)
-        for d in devices:
-            if d.idProduct not in (0x1227, *RECOVERY_PIDS):
-                continue
-            try:
-                serial = d.serial_number or ''
-                cpid = re.search(r'CPID:([0-9A-Fa-f]+)', serial)
-                print(f"   Apple USB PID=0x{d.idProduct:04x} CPID={cpid.group(1) if cpid else 'unavailable'}", flush=True)
-            except (ValueError, usb.core.USBError) as e:
-                print(f"   Apple USB PID=0x{d.idProduct:04x} (serial unavailable: {e})", flush=True)
-            finally:
-                usb.util.dispose_resources(d)
-    except (ValueError, usb.core.USBError) as e:
-        print(f"   USB enumeration error: {e}", flush=True)
-    try:
-        q = subprocess.run(['irecovery', '-q'], capture_output=True, text=True, timeout=10)
-        interesting = ('MODE:', 'CPID:', 'PRODUCT:', 'MODEL:', 'PWND:')
-        details = [line.strip() for line in q.stdout.splitlines() if line.strip().startswith(interesting)]
-        print(f"   irecovery -q exit={q.returncode}: {', '.join(details) or (q.stderr.strip()[-250:] or 'no mode details')}", flush=True)
-    except (OSError, subprocess.TimeoutExpired) as e:
-        print(f"   irecovery -q unavailable: {e}", flush=True)
-
-def recovery(timeout=90):
+def recovery(timeout=40, hint=''):
     """a Recovery device whose string descriptors answer (a half-torn-down one after `go` does not)"""
     end = time.time() + timeout
     while time.time() < end:
-        for d in recovery_devices():
+        d = usb.core.find(idVendor=0x05ac, idProduct=0x1281)
+        if d:
             try:
                 if 'CPID:8030' in (d.serial_number or ''): return d
             except (ValueError, usb.core.USBError):
                 pass
             usb.util.dispose_resources(d)
         time.sleep(0.5)
-    print(f"!! no (healthy) Recovery device after {timeout}s; current USB state:", flush=True)
-    device_diagnostics()
-    sys.exit("!! no (healthy) Recovery device")
+    sys.exit("!! no (healthy) Recovery device" + (f"\n   {hint}" if hint else ""))
 
 def gone(timeout=15):
     end = time.time() + timeout
     while time.time() < end:
-        detected = list(recovery_devices())
-        for d in detected: usb.util.dispose_resources(d)
-        if not detected: return True
+        if not usb.core.find(idVendor=0x05ac, idProduct=0x1281): return True
         time.sleep(0.3)
     return False
-
-def apple_usb_pids():
-    """Read-only USB enumeration, including normal/restore device IDs."""
-    try:
-        devices = usb.core.find(find_all=True, idVendor=0x05ac)
-        result = sorted({d.idProduct for d in devices})
-        return tuple(result)
-    except (ValueError, usb.core.USBError):
-        return None
-
-def observe_boot_usb(seconds=12, interval=0.5):
-    """Record re-enumeration after bootx without assuming a kernel ever started."""
-    end = time.monotonic() + seconds
-    last = object()
-    while time.monotonic() < end:
-        pids = apple_usb_pids()
-        if pids != last:
-            detail = ('enumeration unavailable' if pids is None else
-                      ', '.join(f'0x{pid:04x}' for pid in pids) if pids else 'no Apple USB device')
-            print(f"   post-bootx USB: {detail}", flush=True)
-            last = pids
-        time.sleep(interval)
-    return last
 
 def upload(name):
     for attempt in range(4):              # libirecovery sometimes can't open the device right after a command
@@ -131,39 +63,14 @@ def cmd(c, may_disconnect=False):
     finally:
         usb.util.dispose_resources(dev)
 
-def set_probe_bootargs():
-    """Set volatile iBEC boot args, independently of the patched format string.
-
-    Unlike setenvnp, setenv never writes the iPhone's persistent NVRAM. This
-    diagnostic is forbidden for the OS B and jailbreak boot paths.
-    """
-    if OSB or OSBJB:
-        sys.exit('!! explicit probe boot-args are forbidden for 2nd Data/jailbreak boots')
-    print(f'[probe] setting VOLATILE boot-args: {PROBE_BOOTARGS}', flush=True)
-    # Fail closed if the recovery/iBEC command is refused; otherwise another
-    # ambiguous bootx would be indistinguishable from our previous attempts.
-    cmd('setenv boot-args ' + PROBE_BOOTARGS)
-    print('[probe] volatile setenv accepted (actual kernel arguments still unverified)', flush=True)
-
 def send(name, c, pause=0):
     print(f" - {name}", flush=True)
     upload(name); cmd(c)
     if pause: time.sleep(pause)
 
 def main():
-    if '--probe-reference-order' in sys.argv and (
-            OSB or OSBJB or '--probe-minimal-fw' in sys.argv or
-            os.environ.get('DOUBLERA1N_READ_ONLY_PROBE') != '1'):
-        sys.exit('!! reference-order is restricted to the read-only probe, not installation/OS B')
-    if '--probe-minimal-fw' in sys.argv:
-        if OSB or OSBJB:
-            sys.exit('!! minimal firmware is forbidden for 2nd Data/jailbreak boots')
-        global FIRMWARE
-        FIRMWARE = [entry for entry in FIRMWARE if entry[0] in PROBE_CORE_FIRMWARE]
-        print('[probe] experimental minimal-firmware boot: SPTM, TXM, static/restore trust caches only',
-              flush=True)
-    if '--probe-explicit-bootargs' in sys.argv and (OSB or OSBJB):
-        sys.exit('!! explicit probe boot-args are forbidden for 2nd Data/jailbreak boots')
+    if SETUP and not os.path.isfile(os.path.join(C, 'RestoreLogo.img4')):
+        sys.exit('!! setup logo missing; rebuild the setup chain from its IPSW before booting')
     out = subprocess.run(['irecovery', '-q'], capture_output=True, text=True).stdout
     if RESUME:                           # iBEC already up (an earlier run died after [2]): continue from firmware
         if 'NONC:' not in out or 'PWND' in out: sys.exit("--resume needs the device sitting in iBEC")
@@ -171,31 +78,34 @@ def main():
         return stages_from_firmware()
     if 'PWND: usbliter8' not in out: sys.exit("device not in pwned DFU")
     print("[1] iBSS (raw)", flush=True)
-    # Use the same venv as dualboot.py: the Mac's global `python3` may lack PyUSB.
-    # Never suppress the sender's failure then misreport it as a Recovery timeout.
-    ibss = subprocess.run([sys.executable, CTL, 'boot', os.path.join(C, 'iBSS.raw')],
-                          capture_output=True, text=True)
-    if ibss.returncode:
-        print(f"!! iBSS sender exited {ibss.returncode}", flush=True)
-        for stream in (ibss.stdout, ibss.stderr):
-            if stream.strip(): print(stream.strip()[-2500:], flush=True)
-        device_diagnostics()
-        sys.exit("!! iBSS send failed; stopping before iBEC or any filesystem operations")
-    print(f"   iBSS sender exited 0; {ibss.stdout.strip()[-120:] or 'no sender output'}", flush=True)
-    usb.util.dispose_resources(recovery()); time.sleep(3)
+    # this interpreter (.venv), not `python3` from PATH: setup.sh installs pyusb only into .venv, and a PATH
+    # python3 without it dies on `import usb` before sending anything
+    ecid = re.search(r'(?m)^ECID:\s*(0x[0-9a-fA-F]+)', out)
+    if not ecid:
+        sys.exit('!! could not read the pwned iPhone ECID; stopping before iBSS')
+    try:
+        boot_ibss([sys.executable, '-u', CTL, 'boot', os.path.join(C, 'iBSS.raw')],
+                  ecid[1], osbcfg.work('ibss-handoff.log'))
+    except RuntimeError as exc:
+        sys.exit(f'!! {exc}')
+    time.sleep(3)
     print("[2] iBEC + go", flush=True)
     upload('iBEC.img4')
     # `irecovery -c go` (libirecovery ignores the status-stage timeout of the
     # hand-off), then leave the device alone for 2 s instead of polling it while iBSS tears USB down
-    subprocess.run(['irecovery', '-c', 'go'], capture_output=True, text=True)
+    handoff = subprocess.run(['irecovery', '-c', 'go'], capture_output=True, text=True)
+    if handoff.returncode:
+        sys.exit(f"!! could not send go: {(handoff.stderr or handoff.stdout).strip()[-200:]}")
     time.sleep(2)
-    print(f"   iBSS left USB: {gone()}", flush=True)
-    recovery(60); time.sleep(2)
-    print("   iBEC is up", flush=True)
-    # bring the display up in iBEC so the kernel gets a framebuffer and -v is visible
+    disconnected = gone()
+    usb.util.dispose_resources(recovery(60)); time.sleep(2)
+    print("   Recovery responds after go; USB disconnect " +
+          ("observed" if disconnected else "not observed"), flush=True)
     d = recovery()
+    color = 'bgcolor 0 191 255' if SETUP else 'bgcolor 0 0 0'
     try:
-        d.ctrl_transfer(0x40, 0, 0, 0, b'bgcolor 0 0 0\0', 30000); print("   bgcolor 0 0 0      ok", flush=True)
+        d.ctrl_transfer(0x40, 0, 0, 0, color.encode() + b'\0', 30000)
+        print(f"   {color}      ok", flush=True)
     except usb.core.USBError as e:
         print(f"   bgcolor rejected ({e}) - continuing", flush=True)
     finally:
@@ -203,71 +113,39 @@ def main():
     stages_from_firmware()
 
 def stages_from_firmware():
-    if '--probe-reference-order' in sys.argv:
-        # The upstream A12/A13 SSH ramdisk builder stages security firmware,
-        # RestoreSEP, peripherals, DeviceTree, trust caches, then ramdisk.
-        # Deliberately experimental: the normal installer path is unchanged.
-        print('[probe] reference order: SPTM/TXM, SEP, peripherals, DeviceTree, trust caches, ramdisk',
-              flush=True)
-        available = dict(FIRMWARE)
-        print('[3] security firmware and RestoreSEP', flush=True)
-        for name in PROBE_REFERENCE_PREFIX:
-            if name in available:
-                send(name, 'firmware', available[name])
-        send('SEP.img4', 'rsepfirmware', 4)
-        print('[4] peripheral firmware, DeviceTree, trust caches, ramdisk', flush=True)
-        for name in PROBE_REFERENCE_PERIPHERALS:
-            if name not in available:
-                continue
-            if name in OPTIONAL and not os.path.exists(os.path.join(C, name)):
-                print(f' - {name} (not on this board)', flush=True)
-                continue
-            send(name, 'firmware', available[name])
-        send('DeviceTree.img4', 'devicetree')
-        for name in PROBE_REFERENCE_TRUSTCACHES:
-            if name not in available:
-                sys.exit(f'!! reference-order requires {name}; stopping before bootx')
-            send(name, 'firmware')
-        send('RestoreRamdisk.img4', 'ramdisk', 2)
-    else:
-        print("[3] firmware", flush=True)
-        for name, pause in FIRMWARE:
-            if name in OPTIONAL and not os.path.exists(os.path.join(C, name)):
-                print(f" - {name} (not on this board)", flush=True); continue
-            send(name, 'firmware', pause)
-        if OSB and not OSBJB:
-            time.sleep(2)
-        else:
-            print("[4] ramdisk", flush=True)
-            send('RestoreRamdisk.img4', 'ramdisk', 2)
-        print("[5] devicetree, SEP, kernel", flush=True)
-        send('DeviceTree.img4', 'devicetree')
-        send('SEP.img4', 'rsepfirmware')
-    print(" - Kernelcache.img4", flush=True); upload('Kernelcache.img4')
-    if '--probe-reference-order' in sys.argv:
+    if not OSB and os.path.isfile(os.path.join(C, 'RestoreLogo.img4')):
+        send('RestoreLogo.img4', 'setpicture 0x1')
+    print("[3] firmware", flush=True)
+    for name, pause in FIRMWARE:
+        if name in OPTIONAL and not os.path.exists(os.path.join(C, name)):
+            print(f" - {name} (not on this board)", flush=True); continue
+        send(name, 'firmware', pause)
+    if OSB and not OSBJB:
         time.sleep(2)
-    if '--probe-explicit-bootargs' in sys.argv:
-        set_probe_bootargs()
-    if '--probe-reference-order' in sys.argv:
-        time.sleep(1)
+    else:
+        print("[4] ramdisk", flush=True)
+        send('RestoreRamdisk.img4', 'ramdisk', 2)
+    print("[5] devicetree, SEP, kernel", flush=True)
+    send('DeviceTree.img4', 'devicetree')
+    send('SEP.img4', 'rsepfirmware')
+    print(" - Kernelcache.img4", flush=True); upload('Kernelcache.img4')
     print("[6] bootx", flush=True)
     usb.util.dispose_resources(recovery(10))
-    result = subprocess.run(['irecovery', '-c', 'bootx'], capture_output=True, text=True)
-    # Some successful USB handoffs disconnect before the CLI can read a reply;
-    # report the exit code but do not equate it with boot success/failure.
-    print(f"   bootx command exit={result.returncode}; "
-          f"stdout={result.stdout.strip()[-300:] or '(empty)'}; "
-          f"stderr={result.stderr.strip()[-300:] or '(empty)'}", flush=True)
-    observe_boot_usb()
-    for d in recovery_devices():
+    bootx = subprocess.run(['irecovery', '-c', 'bootx'], capture_output=True, text=True)
+    if bootx.returncode:
+        print(f"   bootx command returned {bootx.returncode}: "
+              f"{(bootx.stderr or bootx.stdout).strip()[-200:]}", flush=True)
+    time.sleep(10)
+    d = usb.core.find(idVendor=0x05ac, idProduct=0x1281)
+    if d:
         try:
             back = 'CPID:8030' in (d.serial_number or '')
         except (ValueError, usb.core.USBError):
             back = False
         usb.util.dispose_resources(d)
         if back: sys.exit("!! bootx returned to the Recovery prompt - iBoot rejected the boot (see UART hash lines)")
-    print("[+] bootx command issued; kernel and ramdisk startup NOT verified - " +
-          ("watch UART for 2nd Data boot" if OSB else "test the read-only USB listener / watch UART"), flush=True)
+    print("[+] iBEC left Recovery after bootx; " +
+          ("2nd Data boot is not yet verified" if OSB else "ramdisk boot is not yet verified"), flush=True)
 
 if __name__ == '__main__':
     main()
