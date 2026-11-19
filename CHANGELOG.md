@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Clarified that the genuine Pico 2's built-in Micro-USB interface is native-host capable but the existing usbliter8 A13 exploit is implemented on the separate GP12/GP13 PIO-USB transport. A passive Micro-USB-to-Lightning cable cannot replace that transport with the current UF2. A native-port exploit port and USB host VBUS management remain unverified research requirements; runbook and Claude handoff now distinguish hardware capability from current firmware limitations.
+
 - Corrected the two-board hardware inventory: the user owns a genuine Raspberry Pi Pico 2 **and** a separate RP2354A DFU/PWN service board. The Pico 2 is the active 4 MiB no-microSD target; the existing candidate's 3,891,456-byte flash extent fits it with 302,848 bytes free. Updated runbook, README, Claude handoff, board notes and agent instructions, and moved the UF2 preflight to before the flash-copy step. No phone/Pico physical boot was performed.
 
 - Added a private, read-only on-device shutdown diagnostic collector for the previously booted second Data environment. It captures uptime/boot metadata and available panic/watchdog/Jetsam reports over the existing Mac USB SSH path. It does not change the phone or claim to identify or fix the shutdown without a real trace. Added mocked SSH/path-safety tests and a diagnostic runbook.
