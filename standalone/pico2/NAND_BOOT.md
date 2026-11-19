@@ -1,6 +1,8 @@
 # Pico 2 no-SD NAND boot candidate
 
-**Status: implemented host preparation and USB transport; device-untested. No working-boot claim or UF2.**
+**Status: implemented host preparation and USB transport; device-untested. A private personalized UF2 was built and verified offline on the successful-installation branch. No working-device boot or public UF2 exists.**
+
+**Merged 2026-11-19:** `main` now incorporates the successful installation `537622e` desktop boot lineage, retaining subsequent NAND transport fixes and offline tests. Read [WORKING_BASE.md](WORKING_BASE.md) and [BUILD_VALIDATION.md](BUILD_VALIDATION.md). This private UF2 build record is not a fresh hardware validation of merged source. Use `--profile-dir` when the original successful installation profile differs from the current checked-in copy.
 
 Target: already-installed doublera1n DataB on d431ap / iOS 27.0.1 / 24A446, with a 4 MiB Pico 2. No reinstall, new microSD, stock OS update or automatic phone writes are involved.
 
