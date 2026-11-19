@@ -1,6 +1,8 @@
 # Pico 2 / doublera1n standalone NAND rebooter: full Mac runbook
 
-> **HARDWARE STOP FOR THE USER'S RP2354A SERVICE BOARD:** This runbook builds for a genuine Raspberry Pi Pico 2 with 4 MiB flash, Micro-USB and separate GPIO host wiring. The black RP2354A DFU/PWN board with PC/target USB-C and Lightning ports is NOT a Pico 2. Its chip has 2 MiB integrated flash; the present 3,891,456-byte flash image will not fit without verified additional memory or a new streaming/compressed implementation. Its USB pin routing is also unverified. **Do not follow Sections 3–6 or flash this UF2 on the RP2354A board.** See [BOARD_COMPATIBILITY.md](BOARD_COMPATIBILITY.md) for the hardware blocker and the read-only capacity checker. Sections 0–1 are read-only preparations only.\n\nTarget for THIS BUILD: a genuine Raspberry Pi **Pico 2** (RP2350, **4 MiB** flash), iPhone **11 Pro Max** (`d431ap`) on **iOS 27.0.1 (`24A446`)** with **second Data already installed**. This uses the phone's internal **Preboot**, not microSD. The secondary iOS/jailbreak is NOT reinstalled.
+> **Correct hardware confirmed (2026-11-19):** The user owns **two separate boards**: a genuine Raspberry Pi Pico 2 (RP2350A with 4 MiB flash) and an RP2354A-based DFU/PWN service board. **Use the genuine Pico 2 for this project.** The existing 3,891,456-byte personalized UF2 flash extent fits Pico 2, leaving 302,848 bytes. The RP2354A's 2 MiB limitation does **not** block this Pico 2 route; it applies only if someone tries to flash the separate DFU/PWN board. See [BOARD_COMPATIBILITY.md](BOARD_COMPATIBILITY.md). Image fit is verified offline; physical boot and safe USB-host wiring are not yet verified.
+
+Target for THIS BUILD: the user's separate genuine Raspberry Pi **Pico 2** (RP2350, **4 MiB** flash), iPhone **11 Pro Max** (`d431ap`) on **iOS 27.0.1 (`24A446`)** with **second Data already installed**. This uses the phone's internal **Preboot**, not microSD. The secondary iOS/jailbreak is NOT reinstalled.
 
 **Reality check:** The export has already passed five SHA256 checks. You have verified the matching Preboot hash directory exists, the phone is SSH-reachable while running DataB, and Preboot shows ~6 GiB available. `PicoNAND` dates from Nov 16 and no UF2 was found in your home directory. The private UF2 compiled Nov 16 was in another development environment and has not been physically boot tested. This procedure is a cautious experimental attempt, **not a guaranteed jailbreak**.
 
@@ -72,8 +74,15 @@ If build dependencies are unavailable or the exact-source patch does not apply c
 
 1. Unplug the Pico 2 from the Mac. Leave the iPhone disconnected from any unverified Pico wiring.
 2. Hold the Pico 2 **BOOTSEL** button while connecting its Micro-USB port to the Mac. Release BOOTSEL when the `RP2350` storage drive mounts.
-3. Copy the **personalized, verified** `doublera1n-pico2-NAND-DEVICE-UNTESTED.uf2` onto that drive. The drive disappearing/restarting is normal; it is **not proof the iPhone booted**.
-4. Before flashing, run `python3 standalone/pico2/verify_uf2_for_board.py --board pico2 --uf2 ~/Desktop/doublera1n-pico2-NAND-DEVICE-UNTESTED.uf2` on the verified retail Pico 2 setup. This checks container/flash extent but NOT electrical wiring or real-board identity. For RP2354A, use `--board rp2354a`; it is expected to STOP.\n5. If the Pico firmware fails, enter BOOTSEL again to reflash it. Do not use Waveshare RP2350-USB-A firmware for your Raspberry Pi Pico 2.
+3. **Before copying anything**, run the read-only verifier in Mac Terminal from `~/doublera1n-pico`:
+   ```sh
+   python3 standalone/pico2/verify_uf2_for_board.py \\
+     --board pico2 \\
+     --uf2 ~/Desktop/doublera1n-pico2-NAND-DEVICE-UNTESTED.uf2
+   ```
+   Stop on any error. This validates framing and flash extent for the declared Pico 2, but cannot prove USB wiring or iPhone boot.
+4. Copy the **personalized, verified** `doublera1n-pico2-NAND-DEVICE-UNTESTED.uf2` onto the Pico 2 `RP2350` volume. The drive disappearing/restarting is normal; it is **not proof the iPhone booted**.
+5. If Pico firmware fails, enter BOOTSEL again to reflash it. Do not use firmware intended for the separate RP2354A DFU/PWN service board or Waveshare RP2350-USB-A board.
 
 ## 5. Wire an actual USB host interface (HARDWARE STOP)
 
