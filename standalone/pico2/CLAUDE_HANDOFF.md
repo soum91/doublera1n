@@ -1,9 +1,16 @@
 # Claude handoff: Pico 2-only doublera1n rebooter (no microSD)
 
 **Date:** 2026-11-15 (America/Toronto)
-**Status:** Research/prototype only. **No working on-device Pico-only boot and no flashable UF2.**
-**Target:** Raspberry Pi Pico 2 (RP2350A, 4 MB onboard flash), iPhone 11 Pro Max (`iPhone12,5`, board `d431ap`), installed iOS 27.0.1 (`24A446`).
+**Status (updated 2026-11-19):** Personalized UF2 was built and validated offline for a genuine Pico 2; **not physically boot-tested**. A pinned rebuild helper and one-pass Mac runbook are available. It is a flashable-format *candidate*, not a demonstrated iPhone booter.
+**Target:** the user's separate Raspberry Pi Pico 2 (RP2350A, 4 MiB flash), NOT their additional RP2354A-based DFU/PWN board. iPhone 11 Pro Max (`iPhone12,5`, board `d431ap`), installed iOS 27.0.1 (`24A446`).
 **User goal:** Re-enter the **already installed** doublera1n second Data environment and jailbreak after a restart, with only the Pico 2, **without a PC, Mac, microSD module, or another fresh installation**.
+
+## Confirmed hardware and build update (2026-11-19)
+
+- The user owns BOTH a genuine Raspberry Pi Pico 2 and a separate RP2354A DFU/PWN service board. Continue the original Pico 2 path; the 2 MiB RP2354A capacity restriction is irrelevant to the genuine Pico 2.
+- The private Pico 2 NAND UF2 candidate has been compiled offline with 3,891,456 bytes of flash extent in 4 MiB, leaving 302,848 bytes. Code, tests and CI are available; flashing, USB-host electrical validation and complete phone boot are still unverified.
+- See [RUNBOOK.md](RUNBOOK.md) and [BOARD_COMPATIBILITY.md](BOARD_COMPATIBILITY.md). Do not ask the user to change boards, add microSD, reinstall DataB or repeat research on the resolved static iBoot ramdisk flag. Verify genuine Pico 2 GP12/GP13 USB host wiring and protected VBUS before any iPhone connection.
+- The previously observed second Data unexpected shutdown is a separate runtime issue. The read-only `collect_shutdown_diagnostics.py` can capture crash/watchdog evidence when SSH is reachable. No root cause has yet been demonstrated.
 
 ## Latest implementation update (2026-11-16)
 
