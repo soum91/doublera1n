@@ -6,6 +6,8 @@ Target: your Raspberry Pi **Pico 2** (RP2350, **4 MiB** flash), iPhone **11 Pro 
 
 **Do not share** `~/Desktop/PicoNAND`, private APTickets, `stage-map.json`, `nand_device_config.h`, or the personalized UF2 publicly.
 
+**Recommended execution order:** First do **Section 1**, then **Section 3** (build), **Section 4** (flash), and **Section 5** (validate electrical host wiring). **Only when those are ready**, return to **Section 2** and explicitly stage files while DataB/SSH still works, then proceed to **Section 6**. The section numbering groups phone preparation, rather than requiring risky Preboot writes before hardware preparation.
+
 ## 0. Preserve the already-working iPhone
 
 Keep it connected to the Mac, charging and currently booted into the second Data environment until **after** the verified staging and UF2 build. Retain the known-working desktop `boot.sh`, your original workspace `~/doublera1n-usb-537622e/dualboot-work` and the exact matching local firmware profile. Have a separate stock-iOS recovery option and do not accept any restore/update/erase prompt. Do not run `dualboot.py install`, `remove`, OTA, or modify APFS roles/NVRAM.
@@ -24,7 +26,7 @@ The script validates exact `d431ap`/`24A446`, the 96-character uppercase manifes
 
 ## 2. One-time isolated Preboot staging (DEVICE WRITE)
 
-Only after reviewing the printed destination and confirming you want to proceed:
+**Defer this step until the UF2 is verified and the USB host wiring is checked.** Only after reviewing the printed destination and choosing the one-time Preboot write:
 
 ```sh
 python3 standalone/pico2/stage_preboot.py --stage
