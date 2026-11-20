@@ -14,6 +14,9 @@ CTL = C.CFUNCTYPE(C.c_int, C.c_void_p, C.c_uint8, C.c_uint8, C.POINTER(C.c_uint8
 WAIT = C.CFUNCTYPE(C.c_int, C.c_void_p, C.c_uint32)
 class IO(C.Structure):
     _fields_ = [('ctx', C.c_void_p), ('identity', ID), ('enumerate', ENUM), ('control', CTL), ('wait', WAIT)]
+READ = C.CFUNCTYPE(C.c_int, C.c_void_p, C.c_size_t, C.POINTER(C.c_uint8), C.c_size_t)
+class Source(C.Structure):
+    _fields_ = [('ctx', C.c_void_p), ('read', READ)]
 
 class NANDTransportTests(unittest.TestCase):
     @classmethod
@@ -25,6 +28,8 @@ class NANDTransportTests(unittest.TestCase):
         cls.lib = C.CDLL(str(so))
         cls.lib.dbnand_run.argtypes = [C.POINTER(IO), C.POINTER(C.c_uint8), C.c_size_t, C.c_uint32, C.c_uint64]
         cls.lib.dbnand_run.restype = C.c_int
+        cls.lib.dbnand_run_source.argtypes = [C.POINTER(IO), C.POINTER(Source), C.c_size_t, C.c_uint32, C.c_uint64]
+        cls.lib.dbnand_run_source.restype = C.c_int
         cls.lib.dbnand_crc32.argtypes = [C.POINTER(C.c_uint8), C.c_size_t]
         cls.lib.dbnand_crc32.restype = C.c_uint32
         cls.lib.dbnand_parse_serial.argtypes = [C.c_char_p, C.c_size_t, C.POINTER(Identity)]
@@ -34,7 +39,7 @@ class NANDTransportTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls): cls.tmp.cleanup()
 
-    def run_transport(self, fail=None, initial=None, swapped=False, corrupt=False):
+    def run_transport(self, fail=None, initial=None, swapped=False, corrupt=False, source_mode=None):
         events = []; phase = [False]; chunks = [0]
         @ID
         def identity(_ctx, out):
@@ -65,8 +70,39 @@ class NANDTransportTests(unittest.TestCase):
             events.append(('wait', timeout)); phase[0] = True
             return -1 if fail == 'wait' else 0
         io = IO(None, identity, enumerate_, control, wait)
-        result = self.lib.dbnand_run(C.byref(io), self.image, len(self.image), self.crc ^ int(corrupt), 123)
+        if source_mode:
+            passes = [0]
+            @READ
+            def read(_ctx, offset, dest, size):
+                if offset == 0: passes[0] += 1
+                if size > 192 or offset + size > len(self.image): return -1
+                if source_mode == 'fail-preflight' and offset >= 192: return -1
+                if source_mode == 'fail-upload' and passes[0] == 2 and offset >= 192: return -1
+                C.memmove(dest, C.byref(self.image, offset), size)
+                if source_mode == 'mutate-upload' and passes[0] == 2 and offset == 0:
+                    dest[0] ^= 1
+                return 0
+            source = Source(None, read)
+            result = self.lib.dbnand_run_source(C.byref(io), C.byref(source), len(self.image), self.crc ^ int(corrupt), 123)
+        else:
+            result = self.lib.dbnand_run(C.byref(io), self.image, len(self.image), self.crc ^ int(corrupt), 123)
         return result, events, chunks[0]
+
+    def test_stream_source_matches_memory_transport(self):
+        self.assertEqual(self.run_transport(source_mode='valid'), self.run_transport())
+
+    def test_stream_preflight_failures_do_not_touch_usb(self):
+        for mode, corrupt in [('fail-preflight', False), ('valid', True)]:
+            result, events, chunks = self.run_transport(source_mode=mode, corrupt=corrupt)
+            self.assertEqual((result, events, chunks), (-1, [], 0))
+
+    def test_stream_upload_failure_or_change_never_triggers_boot(self):
+        for mode in ['fail-upload', 'mutate-upload']:
+            result, events, chunks = self.run_transport(source_mode=mode)
+            self.assertEqual(result, -1)
+            self.assertGreater(chunks, 0)
+            self.assertNotIn((0x21, 8, 0, b''), events)
+            self.assertFalse(any(isinstance(e, tuple) and e[0] == 0x40 for e in events))
 
     def test_ep0_only_sequence_and_identity_on_both_sides(self):
         result, events, chunks = self.run_transport()

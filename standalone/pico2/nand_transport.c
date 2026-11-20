@@ -1,14 +1,16 @@
 #include "nand_transport.h"
 #include <string.h>
 
-uint32_t dbnand_crc32(const uint8_t *data, size_t n) {
-    uint32_t crc = 0xffffffffu;
+static uint32_t crc_update(uint32_t crc, const uint8_t *data, size_t n) {
     for (size_t i = 0; i < n; ++i) {
         crc ^= data[i];
         for (unsigned j = 0; j < 8; ++j)
             crc = (crc >> 1) ^ ((0u - (crc & 1u)) & 0xedb88320u);
     }
-    return ~crc;
+    return crc;
+}
+uint32_t dbnand_crc32(const uint8_t *data, size_t n) {
+    return ~crc_update(0xffffffffu, data, n);
 }
 static int hex_field(const char *s, const char *key, unsigned max_digits, uint64_t *out) {
     const char *p = strstr(s, key);
@@ -43,19 +45,34 @@ static int matching(const struct dbnand_identity *id, uint64_t ecid, int recover
     return recovery ? (id->product >= 0x1280 && id->product <= 0x1283) :
                       (id->product == 0x1227 && id->pwned);
 }
-int dbnand_run(const struct dbnand_io *io, const uint8_t *image, size_t bytes,
-               uint32_t crc, uint64_t ecid) {
+int dbnand_run_source(const struct dbnand_io *io, const struct dbnand_source *source,
+                     size_t bytes, uint32_t crc, uint64_t ecid) {
     if (!io || !io->identity || !io->enumerate || !io->control || !io->wait_recovery ||
-        !image || bytes != 2842448u || !ecid || dbnand_crc32(image, bytes) != crc)
+        !source || !source->read || bytes != 2842448u || !ecid)
         return DBNAND_ERR_IMAGE;
+    uint8_t buffer[192];
+    uint32_t actual = 0xffffffffu;
+    /* Decode/validate the entire image before the first USB action. */
+    for (size_t offset = 0; offset < bytes; offset += sizeof(buffer)) {
+        size_t n = bytes - offset;
+        if (n > sizeof(buffer)) n = sizeof(buffer);
+        if (source->read(source->ctx, offset, buffer, n)) return DBNAND_ERR_IMAGE;
+        actual = crc_update(actual, buffer, n);
+    }
+    if (~actual != crc) return DBNAND_ERR_IMAGE;
     struct dbnand_identity id = {0};
     if (io->identity(io->ctx, &id) || !matching(&id, ecid, 0)) return DBNAND_ERR_IDENTITY;
     if (io->enumerate(io->ctx)) return DBNAND_ERR_ENUMERATION;
+    actual = 0xffffffffu;
     for (size_t offset = 0; offset < bytes; offset += 192u) {
         size_t n = bytes - offset;
         if (n > 192u) n = 192u; /* upstream PIO EP0 length is uint8_t */
-        if (io->control(io->ctx, 0x21, 1, image + offset, (uint16_t)n, 1000)) return DBNAND_ERR_DFU;
+        if (source->read(source->ctx, offset, buffer, n)) return DBNAND_ERR_IMAGE;
+        actual = crc_update(actual, buffer, n);
+        if (io->control(io->ctx, 0x21, 1, buffer, (uint16_t)n, 1000)) return DBNAND_ERR_DFU;
     }
+    /* A source changing during upload must never trigger CUSTOM_BOOT. */
+    if (~actual != crc) return DBNAND_ERR_IMAGE;
     if (io->control(io->ctx, 0x21, 1, NULL, 0, 100) ||
         io->control(io->ctx, 0x21, 8, NULL, 0, 100)) return DBNAND_ERR_DFU;
     /* A disconnect on ABORT after CUSTOM_BOOT is expected. */
@@ -67,4 +84,14 @@ int dbnand_run(const struct dbnand_io *io, const uint8_t *image, size_t bytes,
     static const uint8_t command[] = "memboot";
     if (io->control(io->ctx, 0x40, 0, command, sizeof(command), 1000)) return DBNAND_ERR_COMMAND;
     return DBNAND_HANDED_OFF;
+}
+static int memory_read(void *ctx, size_t offset, uint8_t *destination, size_t n) {
+    memcpy(destination, (const uint8_t *)ctx + offset, n);
+    return 0;
+}
+int dbnand_run(const struct dbnand_io *io, const uint8_t *image, size_t bytes,
+               uint32_t crc, uint64_t ecid) {
+    if (!image) return DBNAND_ERR_IMAGE;
+    const struct dbnand_source source = {(void *)image, memory_read};
+    return dbnand_run_source(io, &source, bytes, crc, ecid);
 }
