@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added an offline RP2354A port foundation at the user's request: independent 32 KiB compressed blocks, a no-heap portable C decoder, and a two-pass streaming boot uploader that validates the image before USB and rechecks it before boot commands. The real private first stage compresses to 1,841,206 bytes including headers and passes exact C decoding/mock-upload checks. This is not board firmware; board mapping, backup/recovery, ARM linking and physical boot remain pending. Also corrected the UF2 preflight for the SDK's independently numbered E10 workaround record. See `standalone/pico2/RP2354A_PORT.md`.
+
 - Clarified that the genuine Pico 2's built-in Micro-USB interface is native-host capable but the existing usbliter8 A13 exploit is implemented on the separate GP12/GP13 PIO-USB transport. A passive Micro-USB-to-Lightning cable cannot replace that transport with the current UF2. A native-port exploit port and USB host VBUS management remain unverified research requirements; runbook and Claude handoff now distinguish hardware capability from current firmware limitations.
 
 - Corrected the two-board hardware inventory: the user owns a genuine Raspberry Pi Pico 2 **and** a separate RP2354A DFU/PWN service board. The Pico 2 is the active 4 MiB no-microSD target; the existing candidate's 3,891,456-byte flash extent fits it with 302,848 bytes free. Updated runbook, README, Claude handoff, board notes and agent instructions, and moved the UF2 preflight to before the flash-copy step. No phone/Pico physical boot was performed.

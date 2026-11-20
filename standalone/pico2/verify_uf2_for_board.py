@@ -41,12 +41,24 @@ def inspect_uf2(path: Path) -> dict:
         if length != 256 or not (flags & FAMILY_ID_PRESENT):
             raise PreflightError(f"unexpected payload size or missing family flag at block {number}")
         entries.append((number, total, family, address, length))
-    if any(total != len(entries) for _, total, _, _, _ in entries):
-        raise PreflightError("UF2 block-count field mismatch")
-    if sorted(n for n, _, _, _, _ in entries) != list(range(len(entries))):
-        raise PreflightError("missing or duplicate UF2 block number")
     counts = Counter(family for _, _, family, _, _ in entries)
     dominant, count = counts.most_common(1)[0]
+    globally_numbered = all(total == len(entries) for _, total, _, _, _ in entries)
+    if globally_numbered:
+        if sorted(n for n, _, _, _, _ in entries) != list(range(len(entries))):
+            raise PreflightError("missing or duplicate UF2 block number")
+    else:
+        # SDK 2.2.0's E10 absolute-family record uses its own count (2),
+        # while the ARM secure image is numbered independently. Do not
+        # miscount that record as ARM flash or accept arbitrary exceptions.
+        main = [e for e in entries if e[2] == dominant]
+        aux = [e for e in entries if e[2] != dominant]
+        if (dominant != 0xe48bff59 or len(aux) != 1 or
+                aux[0] != (0, 2, 0xe48bff57, 0x10ffff00, 256) or
+                any(e[1] != count for e in main)):
+            raise PreflightError("UF2 block-count field mismatch")
+        if sorted(e[0] for e in main) != list(range(count)):
+            raise PreflightError("missing or duplicate main-family UF2 block number")
     if count < 2:
         raise PreflightError("insufficient main flash blocks")
     # Pico SDK RP2350-E10 workaround may add isolated auxiliary-family blocks.

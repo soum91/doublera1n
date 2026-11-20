@@ -58,6 +58,14 @@ class BoardPreflightTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             module.main(["--board", "rp2350", "--uf2", str(self.file)])
 
+    def test_sdk_e10_has_independent_family_numbering(self):
+        workaround = uf2_block(0x10ffff00, 0, 2, family=0xe48bff57)
+        self.file.write_bytes(workaround + uf2_block(0x10000000, 0, 2) + uf2_block(0x10000100, 1, 2))
+        self.assertEqual(module.inspect_uf2(self.file)['flash_extent_bytes'], 512)
+        struct.pack_into('<I', workaround, 20, 1)
+        self.file.write_bytes(workaround + uf2_block(0x10000000, 0, 2) + uf2_block(0x10000100, 1, 2))
+        with self.assertRaises(module.PreflightError): module.inspect_uf2(self.file)
+
 
 if __name__ == "__main__":
     unittest.main()

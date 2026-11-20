@@ -6,6 +6,12 @@ The user owns **both** a standalone genuine Raspberry Pi Pico 2 and a separate R
 
 ## Why this matters
 
+**2026-11-20:** At the user's explicit request, a separate compressed-source
+port foundation now exists in [RP2354A_PORT.md](RP2354A_PORT.md). The real stage
+compresses to 1,841,206 bytes including block headers and passes portable C
+decode/mock-upload checks. This does not change compatibility of the existing
+Pico UF2: no RP2354A firmware, board mapping or physical boot is verified.
+
 The user also has a black A12/A13 DFU/PWN service board identified as RP2354A-based, with USB-C (PC/target) and Lightning connectors. The present NAND UF2 work was built for a **genuine Raspberry Pi Pico 2** (RP2350A + **4 MiB** off-chip flash), exposed GPIOs GP12/13 and a Micro-USB programming port. These are different boards. Never use a Pico 2-specific UF2 with the RP2354A service board.
 
 Raspberry Pi documents the RP2354A's **2 MiB in-package flash**:
