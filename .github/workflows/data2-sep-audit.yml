@@ -1,0 +1,30 @@
+name: DataB SEP read-only patch audit
+on:
+  push:
+    paths:
+      - 'scripts/data2_sep_audit.py'
+      - 'tests/test_data2_sep_audit.py'
+      - 'profiles/d431ap-24A446/kernel-boot-jit.json'
+      - 'profiles/d431ap-24A446/kernel-osb.json'
+      - '.github/workflows/data2-sep-audit.yml'
+  pull_request:
+    paths:
+      - 'scripts/data2_sep_audit.py'
+      - 'tests/test_data2_sep_audit.py'
+      - 'profiles/d431ap-24A446/kernel-boot-jit.json'
+      - 'profiles/d431ap-24A446/kernel-osb.json'
+      - '.github/workflows/data2-sep-audit.yml'
+permissions:
+  contents: read
+jobs:
+  static-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify the exact SEP disabled patch topology
+        run: python3 -m unittest discover -s tests -p 'test_data2_sep_audit.py' -v
+      - name: Report patch inventory (offline; no device)
+        run: python3 scripts/data2_sep_audit.py
