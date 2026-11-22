@@ -30,3 +30,8 @@ The user's RP2354A-based USB-C/Lightning DFU/PWN service board is not the retail
 ## Successful desktop boot baseline preservation (2026-11-19)
 
 The successful user installation checkout was based on `537622e`. Its desktop installer and boot code, dependent helpers, payloads and firmware profiles have been reconciled into `main` with current Pico NAND safety checks. Preserve these working files and their dependencies. `standalone/pico2/BUILD_VALIDATION.md` documents a **private UF2 validated offline**, not a device-tested booter. Do not commit personal APTickets, private flash images, expected ECID headers or staging maps. Use the exact original firmware profile for successful-installation exports; no automatic device/Preboot/NVRAM/OTA operations.
+
+## DataB SEP recovery research (2026-11-22)
+
+For `d431ap` / `24A446`, read `docs/sep/2026-11-22-data2-activation-bridge-research.md` before attempting SEP recovery. The user wants **real SEP features on the already-installed DataB**, not a reinstall or simulated success. The exact-profile `kernel-boot-jit.json` currently stubs 26 AppleCredentialManager methods (including sendSEPCommand and processSCRDResponsePayload); the `kernel-osb.json` patch set also forces AKS to report SEP unbooted. A public pwnerblu ACM protocol adapter applies to iOS 16 communicating with iOS 15 SEP, **not** the reported iOS 15.5/iOS 27 bridge or this DataB target. Do not transplant it or claim passcode, Face ID, iCloud or Apple Pay work. Preserve the known-good build, avoid changing stock SEP/keybags/NVRAM/APFS, and require real endpoint evidence before opt-in experimental kernel changes. `scripts/data2_sep_audit.py` is read-only by default; optional `--probe` only records private observations over established USB SSH.
+
