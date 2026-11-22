@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Investigated pwnerblu's public cross-version AppleSEPCredentialManager activation bridge and the archived experimental `iphonese-ios16/obsoletepatch/sepfix.c`; confirmed neither is a validated SEP-for-DataB fix. Audited exact `d431ap` / `24A446` profiles: 26 forced-success credential manager method pairs (52 patch words), skipped AKS SEP initialization, forced no-SEP status, and seven DataB no-SEP patches. Added source-grounded research notes, a fail-closed read-only offline audit, optional private USB-SSH runtime logging (no phone writes), regression tests and CI. No SEP functions were enabled and no user keybags were touched.
+
+
 - Clarified that the genuine Pico 2's built-in Micro-USB interface is native-host capable but the existing usbliter8 A13 exploit is implemented on the separate GP12/GP13 PIO-USB transport. A passive Micro-USB-to-Lightning cable cannot replace that transport with the current UF2. A native-port exploit port and USB host VBUS management remain unverified research requirements; runbook and Claude handoff now distinguish hardware capability from current firmware limitations.
 
 - Corrected the two-board hardware inventory: the user owns a genuine Raspberry Pi Pico 2 **and** a separate RP2354A DFU/PWN service board. The Pico 2 is the active 4 MiB no-microSD target; the existing candidate's 3,891,456-byte flash extent fits it with 302,848 bytes free. Updated runbook, README, Claude handoff, board notes and agent instructions, and moved the UF2 preflight to before the flash-copy step. No phone/Pico physical boot was performed.
