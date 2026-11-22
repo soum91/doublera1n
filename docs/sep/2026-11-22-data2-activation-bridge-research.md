@@ -38,6 +38,24 @@ These interdependent changes make it unsafe to remove the single `sep-booted.fal
 
 **Phase 5: one service at a time.** Validate authenticated activation and Apple Account login separately; then a fresh isolated DataB keychain, passcode creation/unlock, Face ID enrollment, secure element/Apple Pay and persistence after reboot. Do not infer support for one service from success of another.
 
+## Reproducible, non-mutating diagnostics
+
+The exact-build profile audit and optional **private** runtime sample are in `scripts/data2_sep_audit.py`.
+
+```sh
+# Offline profile review only; does not connect to the iPhone
+cd ~/doublera1n-pico
+git pull --ff-only
+python3 scripts/data2_sep_audit.py
+
+# Only while the already-installed DataB is running with SSH reachable:
+# Connect via your existing known-good Mac USB SSH setup. Do NOT publish logs.
+python3 scripts/data2_sep_audit.py --probe \\
+    --checkout ~/doublera1n-usb-537622e
+```
+
+The optional probe queries version/boot arguments, IORegistry mentions of SEP services, ten minutes of relevant system-log lines, and disabled-service status. Each command is read-only; raw output is written to a uniquely named private `~/Desktop/doublera1n-sep-*` folder with restrictive permissions. An error or absence of lines is not proof SEP cannot work, and these commands do not enable the SEP. Redact account identifiers, phone IDs and secrets from diagnostic excerpts before sharing.
+
 ## Current disposition
 
 The pwnerblu finding is a **promising ACM protocol reference**, not a DataB SEP unlock. The strongest immediately actionable research target is **why the actual SEP endpoints fail during the current DataB boot**; only then does cross-version message bridging matter. Do not alter boot, kernel, KeyStore, Preboot, NVRAM or DataB keybags as part of this document.
