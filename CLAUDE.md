@@ -26,3 +26,7 @@ Read `standalone/pico2/NAND_BOOT.md` before continuing. The configuration flag a
 ### Successful-installation merge and private Pico UF2 (2026-11-19)
 
 The `pico2-working-537622e` branch demonstrates **private personalized UF2 compilation and offline flash-format validation**, but not a successful physical jailbreak boot. Read `standalone/pico2/BUILD_VALIDATION.md`, `WORKING_BASE.md` and `NAND_BOOT.md`. The successful `537622e` desktop installation/boot lineage, helper scripts and payloads are now in `main`, with later NAND EP0 guards and host tests retained. Avoid replacing this baseline with the divergent older diagnostic code. The original locally generated successful firmware profile may differ from the public profile: support `nand_boot.py export --profile-dir` and `DUALBOOT_HOME` or the repository's `dualboot-work` directory. Never publish the original private UF2, staged IMG4s or device binding information. Do not claim device support from CI alone.
+
+## Mandatory cross-project file picker standard
+
+**RELEASE-BLOCKING:** Follow [MANDATORY_FILE_PICKER.md](https://github.com/soum91/tweaks/blob/main/MANDATORY_FILE_PICKER.md) and this repository's AGENTS.md for every existing and future importer, exporter, signer, browser and file picker. A picker that merely opens but ignores a file tap is broken. Require end-to-end real-device selection/import verification before claiming a fix; preserve security scope and asynchronous staged files; report actionable failures. Propagate this requirement to every new app. Do not weaken existing policies.
